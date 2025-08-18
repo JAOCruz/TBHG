@@ -1,0 +1,28 @@
+{
+  "name": "the-bay-harbor-gooner",
+  "version": "1.0.0",
+  "description": "Arsenal FC Fan Club Website",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "arsenal",
+    "football",
+    "soccer",
+    "fan club"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.12",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5"
+  },
+  "dependencies": {
+    "vite": "^4.5.0"
+  }
+}
