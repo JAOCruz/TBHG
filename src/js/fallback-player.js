@@ -86,13 +86,59 @@ export function createFallbackPlayer() {
       
       <div class="border-t border-gray-700 pt-3">
         <h4 class="text-sm font-bold text-red-400 mb-2">🎵 Playlist</h4>
-        <div id="playlist" class="max-h-32 overflow-y-auto space-y-1">
+        <div id="playlist" class="playlist-container overflow-y-auto space-y-1" style="max-height: ${isMobile ? '25vh' : '150px'}">
         </div>
       </div>
     </div>
   `;
   
   document.body.appendChild(player);
+  
+  // Add custom CSS for better scrolling
+  const style = document.createElement('style');
+  style.textContent = `
+    #bay-harbor-player .playlist-container {
+      scrollbar-width: thin;
+      scrollbar-color: #dc2626 #1f2937;
+    }
+    #bay-harbor-player .playlist-container::-webkit-scrollbar {
+      width: 8px;
+    }
+    #bay-harbor-player .playlist-container::-webkit-scrollbar-track {
+      background: #1f2937;
+      border-radius: 4px;
+    }
+    #bay-harbor-player .playlist-container::-webkit-scrollbar-thumb {
+      background-color: #dc2626;
+      border-radius: 4px;
+    }
+    
+    /* Custom volume slider styling */
+    #volume-slider {
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    
+    #volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #dc2626;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    
+    #volume-slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      background: #dc2626;
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+    }
+  `;
+  document.head.appendChild(style);
   
   // Get player elements
   const audio = player.querySelector('#main-audio');
@@ -122,6 +168,7 @@ export function createFallbackPlayer() {
     if (isMobileNow) {
       // Mobile layout
       player.className = 'fixed bottom-4 left-0 right-0 mx-4 bg-gray-900 text-white rounded-lg shadow-2xl z-40 border-2 border-red-600';
+      playlistContainer.style.maxHeight = '25vh';
       
       // Update lyrics position if visible
       if (document.getElementById('bay-harbor-lyrics').style.display !== 'none') {
@@ -131,6 +178,7 @@ export function createFallbackPlayer() {
     } else {
       // Desktop layout
       player.className = 'fixed bottom-20 right-4 bg-gray-900 text-white rounded-lg shadow-2xl z-40 w-80 border-2 border-red-600';
+      playlistContainer.style.maxHeight = '150px';
     }
   });
   
