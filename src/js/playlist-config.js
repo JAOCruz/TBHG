@@ -167,6 +167,122 @@ Bay Harbor Gooner, forever…`
   {
     metaData: {
       artist: "Bay Harbor Gooner",
+      title: "Full Gooner Mode",
+      album: "Dark Passenger EP",
+    },
+    url: "/Full Gooner Mode.mp3",
+    duration: 210,
+    lyrics: `🎵 "Full Gooner Mode" (Dark R&B Parody)
+
+[Verse 1]
+Miami lights fade into the glass,
+Nobody knows what's under the mask.
+Daytime I'm calm, smile in control,
+But nightfall whispers… it's taking a toll.
+
+I hide in shadows, craving the glow,
+A hunger inside me that nobody knows.
+Blood on my hands, but tonight it's not cold,
+I'm drownin' in silence… full gooner mode.
+
+[Pre-Chorus]
+I can't escape it, it's pullin' me deeper,
+A secret I keep, I'm my own grim reaper.
+Not the Code of Harry, but something unholy,
+Addiction's the passenger, takin' it slowly.
+
+[Chorus]
+Full gooner mode… I lose control.
+Plastic sheets draped 'round my soul.
+I'm not the butcher that you all were told,
+I'm fallin', I'm broken, full gooner mode.
+
+[Verse 2]
+Ocean breeze can't wash me clean,
+Every reflection's a darker scene.
+I used to slice the wicked away,
+Now it's myself that I can't escape.
+
+Doakes in the corner, sayin' "Surprise, motherfucker,"
+But what I'm hidin' even worse undercover.
+No bodies to bury, no rivers that flow,
+Just me and my demons… full gooner mode.
+
+[Pre-Chorus]
+It's not justice, it's not fate,
+It's a hunger I can't satiate.
+Harry's ghost don't guide me home,
+I'm lost forever, gooner alone.
+
+[Chorus]
+Full gooner mode… I lose control.
+Plastic sheets draped 'round my soul.
+I'm not the butcher that you all were told,
+I'm fallin', I'm broken, full gooner mode.
+
+[Outro]
+Miami sleeps, but I don't close my eyes…
+The Bay can't save me, no alibis.
+The moonlight whispers, the secrets I hold…
+Dexter's gone missing… I'm full gooner mode.`
+  },
+  {
+    metaData: {
+      artist: "Bay Harbor Gooner",
+      title: "Soy un Gooner",
+      album: "Miami Nights: International",
+    },
+    url: "/Soy un Gooner.mp3",
+    duration: 195,
+    lyrics: `🎵 "Soy un Gooner" (Spanish Version)
+
+[Verso 1]
+En la bahía brillan luces,
+yo camino sin razón.
+Un secreto entre las sombras,
+mi condena, mi pasión.
+
+De día soy sonrisa quieta,
+analista sin calor…
+pero de noche me consumo,
+soy gooner sin control.
+
+[Coro]
+Modo gooner…
+mi alma se esconde en el mar.
+Modo gooner…
+ya no me puedo salvar.
+Lo que Harry nunca pudo perdonar,
+en la luna lo vuelvo a ocultar.
+
+[Verso 2]
+Entre plásticos y silencios,
+no hay cadáver, no hay perdón.
+Solo un vicio que me quema,
+un deseo sin redención.
+
+Doakes me mira en la penumbra,
+Deb pregunta "¿qué pasó?"
+Yo sonrío, miento al aire,
+pero dentro… ya murió.
+
+[Coro]
+Soy un gooner…
+mi alma se esconde en el mar.
+Modo gooner…
+ya no me puedo salvar.
+Lo que Harry nunca pudo perdonar,
+en la luna lo vuelvo a ocultar.
+
+[Outro]
+En el puerto suena el viento,
+nadie sabe quién soy yo.
+Bay Harbor no guarda huellas…
+solo un gooner… y su dolor.`
+  },
+  {
+    metaData: {
+      artist: "Bay Harbor Gooner",
       title: "Future Gooning",
       album: "Miami Nights",
     },

@@ -22,6 +22,26 @@
   {
     "metaData": {
       "artist": "Bay Harbor Gooner",
+      "title": "Full Gooner Mode",
+      "album": "Dark Passenger EP",
+      "year": "2025"
+    },
+    "url": "/Full Gooner Mode.mp3",
+    "duration": 210
+  },
+  {
+    "metaData": {
+      "artist": "Bay Harbor Gooner",
+      "title": "Soy un Gooner",
+      "album": "Miami Nights: International",
+      "year": "2025"
+    },
+    "url": "/Soy un Gooner.mp3",
+    "duration": 195
+  },
+  {
+    "metaData": {
+      "artist": "Bay Harbor Gooner",
       "title": "Future Gooning",
       "album": "Miami Nights",
       "year": "2025"
