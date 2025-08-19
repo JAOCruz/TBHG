@@ -8,9 +8,20 @@ export function createFallbackPlayer() {
   // Create lyrics player
   const lyricsPlayer = createLyricsPlayer();
   
+  // Check if mobile
+  const isMobile = window.innerWidth < 768;
+  
   const player = document.createElement('div');
   player.id = 'bay-harbor-player';
-  player.className = 'fixed bottom-20 right-4 bg-gray-900 text-white rounded-lg shadow-2xl z-40 w-80 border-2 border-red-600';
+  
+  // Responsive styling
+  if (isMobile) {
+    // Mobile: Full width at bottom
+    player.className = 'fixed bottom-4 left-0 right-0 mx-4 bg-gray-900 text-white rounded-lg shadow-2xl z-40 border-2 border-red-600';
+  } else {
+    // Desktop: Right side position
+    player.className = 'fixed bottom-20 right-4 bg-gray-900 text-white rounded-lg shadow-2xl z-40 w-80 border-2 border-red-600';
+  }
   
   player.innerHTML = `
     <div class="bg-red-800 text-white p-3 rounded-t-lg flex justify-between items-center">
@@ -104,6 +115,25 @@ export function createFallbackPlayer() {
   let currentTrackIndex = 0;
   let isPlaying = false;
   
+  // Handle window resize for responsive layout
+  window.addEventListener('resize', () => {
+    const isMobileNow = window.innerWidth < 768;
+    
+    if (isMobileNow) {
+      // Mobile layout
+      player.className = 'fixed bottom-4 left-0 right-0 mx-4 bg-gray-900 text-white rounded-lg shadow-2xl z-40 border-2 border-red-600';
+      
+      // Update lyrics position if visible
+      if (document.getElementById('bay-harbor-lyrics').style.display !== 'none') {
+        const playerHeight = player.offsetHeight;
+        lyricsPlayer.positionBelowPlayer(playerHeight);
+      }
+    } else {
+      // Desktop layout
+      player.className = 'fixed bottom-20 right-4 bg-gray-900 text-white rounded-lg shadow-2xl z-40 w-80 border-2 border-red-600';
+    }
+  });
+  
   // Initialize playlist
   function initPlaylist() {
     playlistContainer.innerHTML = '';
@@ -117,8 +147,15 @@ export function createFallbackPlayer() {
       
       playlistItem.addEventListener('click', () => {
         loadTrack(index);
+        
         // Show lyrics when track is selected
         lyricsPlayer.updateLyrics(index, track.metaData.title, track.metaData.artist);
+        
+        // On mobile, position lyrics below player
+        if (window.innerWidth < 768) {
+          const playerHeight = player.offsetHeight;
+          lyricsPlayer.positionBelowPlayer(playerHeight);
+        }
       });
       
       playlistContainer.appendChild(playlistItem);
@@ -217,10 +254,17 @@ export function createFallbackPlayer() {
   // Lyrics toggle
   lyricsToggleBtn.addEventListener('click', () => {
     lyricsPlayer.toggle();
+    
     // If showing lyrics, update with current track
     if (customPlaylist[currentTrackIndex]) {
       const track = customPlaylist[currentTrackIndex];
       lyricsPlayer.updateLyrics(currentTrackIndex, track.metaData.title, track.metaData.artist);
+      
+      // On mobile, position lyrics below player
+      if (window.innerWidth < 768) {
+        const playerHeight = player.offsetHeight;
+        lyricsPlayer.positionBelowPlayer(playerHeight);
+      }
     }
   });
   

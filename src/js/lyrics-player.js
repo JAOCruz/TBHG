@@ -4,9 +4,21 @@ import { getLyricsForTrack } from './playlist-config.js';
 export function createLyricsPlayer() {
   console.log('📝 Creating Bay Harbor Gooner lyrics display...');
   
+  // Create responsive lyrics container
   const lyricsContainer = document.createElement('div');
   lyricsContainer.id = 'bay-harbor-lyrics';
-  lyricsContainer.className = 'fixed bottom-20 left-4 bg-gray-900 text-white rounded-lg shadow-2xl z-30 w-80 max-h-96 border-2 border-red-600';
+  
+  // Responsive positioning - desktop vs mobile
+  const isMobile = window.innerWidth < 768;
+  
+  if (isMobile) {
+    // Mobile: Full width below player
+    lyricsContainer.className = 'fixed bottom-4 left-0 right-0 mx-4 bg-gray-900 text-white rounded-lg shadow-2xl z-30 border-2 border-red-600 max-h-[40vh]';
+  } else {
+    // Desktop: Left side position
+    lyricsContainer.className = 'fixed bottom-20 left-4 bg-gray-900 text-white rounded-lg shadow-2xl z-30 w-80 max-h-96 border-2 border-red-600';
+  }
+  
   lyricsContainer.style.display = 'none'; // Hidden by default
   
   lyricsContainer.innerHTML = `
@@ -18,7 +30,7 @@ export function createLyricsPlayer() {
       <button id="close-lyrics" class="text-white hover:text-red-300 text-xl font-bold">&times;</button>
     </div>
     
-    <div class="p-4 max-h-80 overflow-y-auto">
+    <div class="p-4 max-h-80 overflow-y-auto" style="max-height: ${isMobile ? '30vh' : '80vh'}">
       <div id="lyrics-content" class="text-sm leading-relaxed text-gray-300 whitespace-pre-line">
         🎵 Select a track from the player to view lyrics...
         
@@ -30,6 +42,21 @@ export function createLyricsPlayer() {
   `;
   
   document.body.appendChild(lyricsContainer);
+  
+  // Handle window resize for responsive layout
+  window.addEventListener('resize', () => {
+    const isMobileNow = window.innerWidth < 768;
+    
+    if (isMobileNow) {
+      // Mobile layout
+      lyricsContainer.className = 'fixed bottom-4 left-0 right-0 mx-4 bg-gray-900 text-white rounded-lg shadow-2xl z-30 border-2 border-red-600 max-h-[40vh]';
+      lyricsContainer.querySelector('.p-4').style.maxHeight = '30vh';
+    } else {
+      // Desktop layout
+      lyricsContainer.className = 'fixed bottom-20 left-4 bg-gray-900 text-white rounded-lg shadow-2xl z-30 w-80 max-h-96 border-2 border-red-600';
+      lyricsContainer.querySelector('.p-4').style.maxHeight = '80vh';
+    }
+  });
   
   // Close button functionality
   const closeBtn = lyricsContainer.querySelector('#close-lyrics');
@@ -71,6 +98,13 @@ export function createLyricsPlayer() {
         lyricsContainer.style.display = 'block';
       } else {
         lyricsContainer.style.display = 'none';
+      }
+    },
+    // Method to reposition based on player position (for mobile layout)
+    positionBelowPlayer: (playerHeight) => {
+      if (window.innerWidth < 768) {
+        const playerBottom = playerHeight + 20; // 20px gap
+        lyricsContainer.style.bottom = `${playerBottom}px`;
       }
     }
   };

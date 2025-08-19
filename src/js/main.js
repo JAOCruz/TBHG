@@ -23,18 +23,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('🎵 Auto-loading Bay Harbor Gooner music player with lyrics...');
   await initAudioPlayer();
   
+  // Check if mobile
+  const isMobile = window.innerWidth < 768;
+  
   // Add Bay Harbor Gooner music toggle button (now for closing/opening)
   const addMusicToggle = () => {
     console.log('📍 Adding Bay Harbor Gooner music toggle button...');
     
     const toggleButton = document.createElement('button');
     toggleButton.id = 'music-toggle-button';
-    toggleButton.className = 'fixed bottom-4 right-4 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg transition-all duration-300';
+    
+    // Position differently based on screen size
+    if (isMobile) {
+      toggleButton.className = 'fixed top-4 right-4 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg transition-all duration-300';
+    } else {
+      toggleButton.className = 'fixed bottom-4 right-4 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg transition-all duration-300';
+    }
     
     // Ensure maximum z-index and explicit positioning
     toggleButton.style.cssText = `
       position: fixed !important;
-      bottom: 16px !important;
+      ${isMobile ? 'top: 16px !important;' : 'bottom: 16px !important;'}
       right: 16px !important;
       z-index: 99999 !important;
       background-color: #dc2626 !important;
@@ -129,13 +138,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
     
+    // Handle window resize for responsive layout
+    window.addEventListener('resize', () => {
+      const isMobileNow = window.innerWidth < 768;
+      if (isMobileNow) {
+        toggleButton.style.top = '16px';
+        toggleButton.style.bottom = 'auto';
+      } else {
+        toggleButton.style.bottom = '16px';
+        toggleButton.style.top = 'auto';
+      }
+    });
+    
     // Add to page
     document.body.appendChild(toggleButton);
     console.log('✅ Bay Harbor Gooner music toggle button added');
   };
   
-  // Add lyrics toggle button in top-left
+  // Add lyrics toggle button in top-left (only on desktop)
   const addLyricsToggle = () => {
+    // On mobile, we don't need a separate lyrics toggle
+    if (isMobile) return;
+    
     const lyricsButton = document.createElement('button');
     lyricsButton.id = 'lyrics-toggle-main';
     lyricsButton.className = 'fixed top-4 left-4 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg transition-all duration-300';
@@ -173,6 +197,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       } else {
         console.log('⚠️ Music player not loaded yet');
+      }
+    });
+    
+    // Hide on mobile
+    window.addEventListener('resize', () => {
+      if (window.innerWidth < 768) {
+        lyricsButton.style.display = 'none';
+      } else {
+        lyricsButton.style.display = 'flex';
       }
     });
     
@@ -225,10 +258,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const player = document.getElementById('bay-harbor-player');
     const lyricsButton = document.getElementById('lyrics-toggle-main');
     
-    if (button && player && lyricsButton) {
+    if (button && player) {
       console.log('✅ Bay Harbor Gooner music player with lyrics is auto-loaded and ready!');
       console.log('🎵 New tracks loaded: Double Life Gooner, Black Gooner, Future Gooning, We Are The Gooners');
       console.log('📝 Click any song to view lyrics in the left panel!');
+      
+      if (isMobile) {
+        console.log('📱 Mobile layout active - lyrics will appear below player');
+      }
     } else {
       console.error('❌ Something went wrong with auto-loading');
     }
