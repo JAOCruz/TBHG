@@ -1,0 +1,42 @@
+[
+  {
+    "metaData": {
+      "artist": "Bay Harbor Gooner",
+      "title": "Double Life Gooner",
+      "album": "Bay Harbor Sessions",
+      "year": "2025"
+    },
+    "url": "/Double Life Gooner - White Gooner.mp3",
+    "duration": 240
+  },
+  {
+    "metaData": {
+      "artist": "Bay Harbor Gooner",
+      "title": "Black Gooner",
+      "album": "Bay Harbor Sessions",
+      "year": "2025"
+    },
+    "url": "/TBHG - Black Gooner.mp3",
+    "duration": 200
+  },
+  {
+    "metaData": {
+      "artist": "Bay Harbor Gooner",
+      "title": "Future Gooning",
+      "album": "Miami Nights",
+      "year": "2025"
+    },
+    "url": "/Future Gooning - Miami Gooning.mp3",
+    "duration": 180
+  },
+  {
+    "metaData": {
+      "artist": "Bay Harbor Gooner",
+      "title": "We Are The Gooners",
+      "album": "Bay Harbor Sessions",
+      "year": "2025"
+    },
+    "url": "/Sticky Wave - We are the Gooners.mp3",
+    "duration": 160
+  }
+] 
