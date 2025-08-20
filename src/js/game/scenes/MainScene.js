@@ -16,8 +16,10 @@ export class MainScene extends Phaser.Scene {
     
     // Game variables
     this.score = 0;
-    this.lives = 3;
+    this.lives = 3; // Start with 3 lives instead of 1
     this.level = 1;
+    this.distance = 0;
+    this.lastLevelUp = 0;
     this.gameSpeed = 300;
     this.spawnRate = 1000; // Reduced from 2000 for more cars
     this.lastScoreUpdate = 0;
@@ -136,9 +138,12 @@ export class MainScene extends Phaser.Scene {
     
     // Initialize game state variables
     this.score = 0;
-    this.lives = 3;
+    this.lives = 3; // Start with 3 lives instead of 1
     this.stars = 0;
     this.multiplier = 1;
+    this.level = 1;
+    this.distance = 0;
+    this.lastLevelUp = 0;
     this.gameSpeed = 200;
     
     // Load all music and start playing
@@ -204,6 +209,12 @@ export class MainScene extends Phaser.Scene {
     // Create mobile touch controls if on mobile
     if (this.isMobile) {
       this.createMobileControls();
+      
+      // Add orientation change listener for mobile
+      this.orientationChangeHandler = () => {
+        this.handleOrientationChange();
+      };
+      window.addEventListener('orientationchange', this.orientationChangeHandler);
     }
     
     // Set up input handling
@@ -223,11 +234,35 @@ export class MainScene extends Phaser.Scene {
     this.input.keyboard.on('keyup-D', () => {
       this.debugKeyPressed = false;
     });
+    
+    // Debug button for testing collisions
+    const debugButton = this.add.text(10, 100, '🧪 DEBUG INFO', {
+      fontSize: '16px',
+      fill: '#ff0000',
+      backgroundColor: '#000000',
+      padding: { x: 10, y: 5 }
+    });
+    debugButton.setInteractive();
+    debugButton.on('pointerdown', () => {
+      console.log('🧪 Debug button pressed!');
+      if (this.enemies && this.enemies.getChildren().length > 0) {
+        const enemy = this.enemies.getChildren()[0];
+        console.log('🧪 First enemy info:', {
+          sprite: enemy.texture?.key,
+          vehicleType: enemy.vehicleType,
+          position: `${enemy.x}, ${enemy.y}`,
+          visible: enemy.visible,
+          depth: enemy.depth
+        });
+      } else {
+        console.log('🧪 No enemies available');
+      }
+    });
   }
 
-  update(time) {
-    // Player movement
-    this.handlePlayerMovement();
+  update(time, delta) {
+    // Handle player movement
+    this.handlePlayerMovement(delta);
     
     // Scroll city background
     this.scrollCityBackground();
@@ -245,6 +280,25 @@ export class MainScene extends Phaser.Scene {
     if (time - this.lastScoreUpdate > 1000 && this.score > 0 && this.score % 10 === 0) {
       this.levelUp();
       this.lastScoreUpdate = time;
+    }
+    
+    // Manual collision test - check if player and enemies are overlapping
+    if (this.player && this.enemies && this.debug) {
+      const enemies = this.enemies.getChildren();
+      enemies.forEach((enemy, index) => {
+        if (enemy.active && this.player.active) {
+          const distance = Phaser.Math.Distance.Between(
+            this.player.x, this.player.y,
+            enemy.x, enemy.y
+          );
+          
+          // If very close, log it
+          if (distance < 100) {
+            console.log(`🔍 Close to enemy ${index} (${enemy.texture?.key}): distance=${distance.toFixed(1)}`);
+            console.log(`🔍 Enemy vehicleType:`, enemy.vehicleType);
+          }
+        }
+      });
     }
     
     // Update debug info if enabled
@@ -748,13 +802,14 @@ export class MainScene extends Phaser.Scene {
     
     const width = this.cameras.main.width;
     const height = this.cameras.main.height;
-    const footerY = height * 0.92; // Footer area
     
-    // Position mobile controls in footer - center
+    // Move controls higher up to avoid browser navigation bar
+    const controlY = height * 0.85; // Moved from 0.92 to 0.85 (higher up)
+    
+    // Position mobile controls - center
     const controlSize = 45;
     const controlSpacing = 60;
     const centerX = width / 2;
-    const controlY = footerY + 25; // Center of footer
     
     // Create control background
     this.add.rectangle(centerX, controlY, 200, 80, 0x000000, 0.7)
@@ -798,12 +853,23 @@ export class MainScene extends Phaser.Scene {
       padding: { x: 12, y: 8 }
     }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(15);
     
+    // Add fullscreen button for mobile
+    const fullscreenBtn = this.add.text(width - 60, 40, '⛶', {
+      font: 'bold 24px Arial',
+      fill: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 2,
+      backgroundColor: '#059669',
+      padding: { x: 8, y: 6 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(15);
+    
     // Store references
     this.mobileControls = {
       up: upArrow,
       down: downArrow,
       left: leftArrow,
-      right: rightArrow
+      right: rightArrow,
+      fullscreen: fullscreenBtn
     };
     
     // Touch event handlers with visual feedback
@@ -859,6 +925,10 @@ export class MainScene extends Phaser.Scene {
       rightArrow.setStyle({ backgroundColor: '#dc2626' });
     });
     
+    fullscreenBtn.on('pointerdown', () => {
+      this.toggleFullscreen();
+    });
+    
     // Initialize mobile input state
     this.mobileInput = {
       up: false,
@@ -866,6 +936,96 @@ export class MainScene extends Phaser.Scene {
       left: false,
       right: false
     };
+    
+    // Add fullscreen change event listener
+    this.fullscreenChangeHandler = () => {
+      this.updateFullscreenButton();
+    };
+    document.addEventListener('fullscreenchange', this.fullscreenChangeHandler);
+    document.addEventListener('webkitfullscreenchange', this.fullscreenChangeHandler);
+    document.addEventListener('msfullscreenchange', this.fullscreenChangeHandler);
+    
+    // Update fullscreen button appearance
+    this.updateFullscreenButton();
+    
+    console.log('📱 Mobile controls created');
+  }
+  
+  // Update fullscreen button appearance
+  updateFullscreenButton() {
+    if (this.mobileControls?.fullscreen) {
+      const isFullscreen = this.isFullscreen();
+      this.mobileControls.fullscreen.setText(isFullscreen ? '⛶' : '⛶');
+      this.mobileControls.fullscreen.setStyle({ 
+        backgroundColor: isFullscreen ? '#dc2626' : '#059669' 
+      });
+    }
+  }
+  
+  // Toggle fullscreen for mobile devices
+  toggleFullscreen() {
+    if (!this.isMobile) return;
+    
+    try {
+      if (!document.fullscreenElement) {
+        // Enter fullscreen
+        if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen();
+        } else if (document.documentElement.webkitRequestFullscreen) {
+          document.documentElement.webkitRequestFullscreen();
+        } else if (document.documentElement.msRequestFullscreen) {
+          document.documentElement.msRequestFullscreen();
+        }
+        console.log('📱 Entering fullscreen mode');
+      } else {
+        // Exit fullscreen
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+          document.msExitFullscreen();
+        }
+        console.log('📱 Exiting fullscreen mode');
+      }
+    } catch (error) {
+      console.warn('📱 Fullscreen not supported or blocked:', error);
+    }
+  }
+  
+  // Check if device is in fullscreen mode
+  isFullscreen() {
+    return !!(document.fullscreenElement || 
+              document.webkitFullscreenElement || 
+              document.msFullscreenElement);
+  }
+  
+  // Handle screen orientation changes for mobile
+  handleOrientationChange() {
+    if (!this.isMobile) return;
+    
+    // Wait a bit for the orientation change to complete
+    this.time.delayedCall(100, () => {
+      if (this.mobileControls) {
+        const width = this.cameras.main.width;
+        const height = this.cameras.main.height;
+        
+        // Reposition controls for new orientation
+        const controlY = height * 0.85;
+        const centerX = width / 2;
+        
+        // Update control positions
+        this.mobileControls.up.setPosition(centerX, controlY - 25);
+        this.mobileControls.down.setPosition(centerX, controlY + 25);
+        this.mobileControls.left.setPosition(centerX - 35, controlY);
+        this.mobileControls.right.setPosition(centerX + 35, controlY);
+        
+        // Update fullscreen button position
+        this.mobileControls.fullscreen.setPosition(width - 60, 40);
+        
+        console.log('📱 Controls repositioned for orientation change');
+      }
+    });
   }
   
   // Update debug information
@@ -992,8 +1152,44 @@ export class MainScene extends Phaser.Scene {
       { sprite: 'cycle', lives: 0, stars: 1, type: 'small' }
     ];
     
-    const vehicleType = Phaser.Utils.Array.GetRandom(vehicleTypes);
+    // Debug: Show the full array and count
+    console.log(`🎲 Vehicle types array:`, vehicleTypes);
+    console.log(`🎲 Total vehicle types: ${vehicleTypes.length}`);
+    console.log(`🎲 Ambulance types: ${vehicleTypes.filter(v => v.type === 'ambulance').length}`);
+    console.log(`🎲 Small types: ${vehicleTypes.filter(v => v.type === 'small').length}`);
+    console.log(`🎲 Normal types: ${vehicleTypes.filter(v => v.type === 'normal').length}`);
+    
+    // Better random selection to ensure all types have a fair chance
+    let vehicleType;
+    const random = Math.random();
+    
+    if (random < 0.15) {
+      // 15% chance for ambulance
+      const ambulances = vehicleTypes.filter(v => v.type === 'ambulance');
+      vehicleType = ambulances[0];
+      console.log(`🎲 🚑 Selected ambulance (15% chance)`);
+    } else if (random < 0.30) {
+      // 15% chance for small vehicles (cycles)
+      const smallVehicles = vehicleTypes.filter(v => v.type === 'small');
+      vehicleType = Phaser.Utils.Array.GetRandom(smallVehicles);
+      console.log(`🎲 🛵 Selected small vehicle (15% chance)`);
+    } else if (random < 0.40) {
+      // 10% chance for trucks
+      const trucks = vehicleTypes.filter(v => v.type === 'truck');
+      vehicleType = Phaser.Utils.Array.GetRandom(trucks);
+      console.log(`🎲 🚛 Selected truck (10% chance)`);
+    } else {
+      // 60% chance for normal cars
+      const normalCars = vehicleTypes.filter(v => v.type === 'normal');
+      vehicleType = Phaser.Utils.Array.GetRandom(normalCars);
+      console.log(`🎲 🚗 Selected normal car (60% chance)`);
+    }
+    
     const vehicle = this.enemies.create(this.cameras.main.width + 50, y, vehicleType.sprite);
+    
+    // Debug: Show the exact vehicle type that was selected
+    console.log(`🎲 Random vehicle type selected:`, vehicleType);
+    console.log(`🎲 Sprite: ${vehicleType.sprite}, Type: ${vehicleType.type}, Lives: ${vehicleType.lives}, Stars: ${vehicleType.stars}`);
     
     // Check if sprite was created successfully
     if (!vehicle) {
@@ -1003,7 +1199,53 @@ export class MainScene extends Phaser.Scene {
     
     vehicle.setScale(3); // Bigger cars - 3x scale instead of 4x
     vehicle.speed = Phaser.Math.Between(200, 350);
-    vehicle.vehicleType = vehicleType;
+    
+    // Create a NEW object for each vehicle to avoid reference issues
+    vehicle.vehicleType = {
+      sprite: vehicleType.sprite,
+      lives: vehicleType.lives,
+      stars: vehicleType.stars,
+      type: vehicleType.type
+    };
+    
+    // CRITICAL: Add property watcher to see if vehicleType.type changes
+    Object.defineProperty(vehicle.vehicleType, 'type', {
+      get: function() {
+        return this._type;
+      },
+      set: function(value) {
+        console.log(`🚨 VEHICLE TYPE CHANGED from "${this._type}" to "${value}" for sprite: ${this.sprite}`);
+        this._type = value;
+      }
+    });
+    vehicle.vehicleType.type = vehicleType.type; // Set initial value
+    
+    // Debug: Verify the vehicleType was assigned correctly
+    console.log(`🚗 Vehicle spawned: ${vehicleType.sprite} at (${vehicle.x}, ${vehicle.y})`);
+    console.log(`🚗 Assigned vehicleType:`, vehicle.vehicleType);
+    console.log(`🚗 Type check: ${vehicle.vehicleType.type === vehicleType.type ? '✅ MATCH' : '❌ MISMATCH'}`);
+    
+    // Test switch statement logic
+    console.log(`🧪 Testing switch statement logic:`);
+    switch (vehicle.vehicleType.type) {
+      case 'ambulance':
+        console.log(`🧪 ✅ Switch case 'ambulance' would be hit`);
+        break;
+      case 'small':
+        console.log(`🧪 ✅ Switch case 'small' would be hit`);
+        break;
+      case 'truck':
+        console.log(`🧪 ✅ Switch case 'truck' would be hit`);
+        break;
+      default:
+        console.log(`🧪 ❌ Switch case 'default' would be hit for type: "${vehicle.vehicleType.type}"`);
+        break;
+    }
+    
+    // Debug: Check physics body
+    console.log(`🚗 Vehicle physics body:`, vehicle.body);
+    console.log(`🚗 Vehicle body size: ${vehicle.body.width} x ${vehicle.body.height}`);
+    
     vehicle.body.setSize(vehicle.width * 0.8, vehicle.height * 0.8);
     
     // Make sure vehicle is visible and at correct depth
@@ -1016,6 +1258,14 @@ export class MainScene extends Phaser.Scene {
       console.log(`🛵 CYCLE SPAWNED: ${vehicleType.sprite} at (${vehicle.x}, ${vehicle.y})`);
       console.log(`🛵 CYCLE TYPE: ${vehicleType.type}, lives: ${vehicleType.lives}, stars: ${vehicleType.stars}`);
       console.log(`🛵 CYCLE VEHICLE TYPE ASSIGNED:`, vehicle.vehicleType);
+    }
+    
+    // Extra logging for ambulance to debug the issue
+    if (vehicleType.type === 'ambulance') {
+      console.log(`🚑 AMBULANCE SPAWNED: ${vehicleType.sprite} at (${vehicle.x}, ${vehicle.y})`);
+      console.log(`🚑 AMBULANCE TYPE: ${vehicleType.type}, lives: ${vehicleType.lives}, stars: ${vehicleType.stars}`);
+      console.log(`🚑 AMBULANCE VEHICLE TYPE ASSIGNED:`, vehicle.vehicleType);
+      console.log(`🚑 TYPE CHECK: ${vehicle.vehicleType.type === 'ambulance' ? '✅ CORRECT' : '❌ WRONG'}`);
     }
     
     console.log(`🚗 Vehicle spawned: ${vehicleType.sprite} at (${vehicle.x}, ${vehicle.y}), type: ${vehicleType.type}, lives: ${vehicleType.lives}, stars: ${vehicleType.stars}`);
@@ -1180,6 +1430,9 @@ export class MainScene extends Phaser.Scene {
     // Add to score with multiplier
     this.score += 1 * this.multiplier;
     
+    // Update UI text
+    if (this.scoreText) this.scoreText.setText(`SCORE: ${this.score.toString().padStart(6, '0')}`);
+    
     // Remove the collectible
     collectible.destroy();
     
@@ -1188,25 +1441,14 @@ export class MainScene extends Phaser.Scene {
   
   // Handle hitting vehicles
   hitVehicle(player, vehicle) {
-    if (!vehicle.vehicleType) {
-      console.warn('🚗 Vehicle hit but no vehicleType defined:', vehicle);
-      return;
-    }
+    if (!vehicle.vehicleType) return;
     
     const vehicleType = vehicle.vehicleType;
-    console.log(`🚗 Vehicle collision detected:`, {
-      sprite: vehicleType.sprite,
-      type: vehicleType.type,
-      lives: vehicleType.lives,
-      stars: vehicleType.stars,
-      fullVehicleType: vehicleType
-    });
     
     // Handle different vehicle types
     switch (vehicleType.type) {
       case 'police':
         // Instant arrest - game over
-        console.log('🚔 Police hit - GAME OVER!');
         this.gameOver('ARRESTED');
         break;
         
@@ -1214,17 +1456,16 @@ export class MainScene extends Phaser.Scene {
         // +1 life, no multiplier reset
         this.lives += 1;
         this.showFloatingText('+1 LIFE', vehicle.x, vehicle.y, '#00ff00');
+        if (this.livesText) this.livesText.setText(`LIVES: ${this.lives}`);
         console.log(`🚑 Ambulance hit! Lives: ${this.lives}`);
         break;
         
       case 'small':
         // +1 star, no life loss
-        const oldStars = this.stars;
-        const oldLives = this.lives;
         this.stars = Math.min(this.stars + 1, 5);
         this.showFloatingText('+1 STAR', vehicle.x, vehicle.y, '#ffff00');
-        console.log(`🛵 Small vehicle hit! Stars: ${oldStars} → ${this.stars}, Lives: ${oldLives} (unchanged)`);
-        console.log(`🛵 Vehicle details: sprite="${vehicleType.sprite}", type="${vehicleType.type}"`);
+        if (this.starsText) this.starsText.setText(`WANTED: ${'★'.repeat(this.stars) + '☆'.repeat(5 - this.stars)}`);
+        console.log(`🛵 Small vehicle hit! Stars: ${this.stars}`);
         break;
         
       case 'truck':
@@ -1232,15 +1473,18 @@ export class MainScene extends Phaser.Scene {
         this.lives -= 2;
         this.multiplier = 1;
         this.showFloatingText('-2 LIVES', vehicle.x, vehicle.y, '#ff0000');
+        if (this.livesText) this.livesText.setText(`LIVES: ${this.lives}`);
+        if (this.multiplierText) this.multiplierText.setText(`COMBO: x${this.multiplier}`);
         console.log(`🚛 Truck hit! Lives: ${this.lives}`);
         break;
         
       default:
         // Normal cars: -1 life, reset multiplier
-        console.log(`🚗 Default case hit for vehicle type: "${vehicleType.type}"`);
         this.lives -= 1;
         this.multiplier = 1;
         this.showFloatingText('-1 LIFE', vehicle.x, vehicle.y, '#ff0000');
+        if (this.livesText) this.livesText.setText(`LIVES: ${this.lives}`);
+        if (this.multiplierText) this.multiplierText.setText(`COMBO: x${this.multiplier}`);
         console.log(`🚗 Car hit! Lives: ${this.lives}`);
         break;
     }
@@ -1289,6 +1533,18 @@ export class MainScene extends Phaser.Scene {
     if (this.collectibleTimer) this.collectibleTimer.destroy();
     if (this.vehicleTimer) this.vehicleTimer.destroy();
     if (this.policeTimer) this.policeTimer.destroy();
+    
+    // Clean up fullscreen event listeners
+    if (this.fullscreenChangeHandler) {
+      document.removeEventListener('fullscreenchange', this.fullscreenChangeHandler);
+      document.removeEventListener('webkitfullscreenchange', this.fullscreenChangeHandler);
+      document.removeEventListener('msfullscreenchange', this.fullscreenChangeHandler);
+    }
+    
+    // Clean up orientation change event listener
+    if (this.orientationChangeHandler) {
+      window.removeEventListener('orientationchange', this.orientationChangeHandler);
+    }
     
     // Play game over sound
     if (this.sound.get('gameover')) {
@@ -1388,30 +1644,7 @@ export class MainScene extends Phaser.Scene {
     obstacle.body.offset.y = obstacle.height * 0.25;
   }
   
-  // Collect item handler
-  collectItem(player, collectible) {
-    collectible.destroy();
-    
-    // Apply multiplier to score
-    const points = 1 * this.multiplier;
-    this.score += points;
-    this.scoreText.setText(`SCORE: ${this.score.toString().padStart(6, '0')}`);
-    
-    // Increase multiplier (max 8)
-    if (this.multiplier < 8) {
-      this.multiplier++;
-      this.multiplierText.setText(`COMBO: x${this.multiplier}`);
-    }
-    
-    // Play chicken sound at lower volume
-    this.sound.play('collect', { volume: 0.3 }); // Increased from 0.2
-    
-    // Visual feedback
-    this.cameras.main.flash(100, 255, 255, 0);
-    
-    // Show points gained
-    this.showFloatingText(`+${points}`, player.x, player.y - 30, '#00ff00');
-  }
+
   
   // Update song display
   updateSongDisplay() {
@@ -1420,148 +1653,9 @@ export class MainScene extends Phaser.Scene {
     }
   }
   
-  // Handle police collision (instant arrest)
-  hitPolice(player, police) {
-    console.log('🚔 POLICE COLLISION DETECTED! Game Over.');
-    
-    // Remove police from array
-    const index = this.policeCars.indexOf(police);
-    if (index > -1) {
-      this.policeCars.splice(index, 1);
-    }
-    
-    police.destroy();
-    
-    // Show arrest message
-    this.showFloatingText('ARRESTED!', player.x, player.y - 30, '#ff0000');
-    
-    // Visual feedback
-    this.cameras.main.shake(300, 0.02);
-    
-    // Play arrest sound (police.mp3) - lowered volume
-    if (this.cache.audio.exists('gameover')) {
-      this.sound.play('gameover', { volume: 0.2 }); // Increased from 0.15 to 0.2
-    }
-    
-    // Immediate game over
-    this.gameOver();
-  }
+
   
-  // Handle vehicle collision
-  hitVehicle(player, vehicle) {
-    let resetMultiplier = true;
-    let specificSound = null; // Specific sound for this vehicle type
-    let specificVolume = 0.15; // Default volume
-    
-    // Remove vehicle from appropriate group based on type
-    if (vehicle.vehicleType === 'police') {
-      const index = this.policeCars.indexOf(vehicle);
-      if (index > -1) {
-        this.policeCars.splice(index, 1);
-      }
-    } else {
-      // Remove from Phaser groups
-      if (this.enemies && this.enemies.contains(vehicle)) {
-        this.enemies.remove(vehicle);
-      }
-      
-      if (this.obstacles && this.obstacles.contains(vehicle)) {
-        this.obstacles.remove(vehicle);
-      }
-    }
-    
-    // Handle different vehicle types
-    switch (vehicle.vehicleType) {
-      case 'ambulance':
-        this.lives++;
-        this.livesText.setText(`LIVES: ${this.lives}`);
-        this.showFloatingText('+1 Life', player.x, player.y - 30, '#00ff00');
-        resetMultiplier = false; // Don't reset multiplier for ambulance
-        // No specific sound, just bump
-        break;
-        
-      case 'police':
-        // This should be handled by hitPolice method, but just in case
-        this.showFloatingText('ARRESTED!', player.x, player.y - 30, '#ff0000');
-        this.gameOver();
-        return;
-        
-      case 'trucks':
-        this.lives -= 2;
-        this.livesText.setText(`LIVES: ${this.lives}`);
-        this.showFloatingText('-2 Lives', player.x, player.y - 30, '#ff0000');
-        this.stars = Math.min(this.stars + 1, 5);
-        this.starsText.setText(`WANTED: ${'★'.repeat(this.stars) + '☆'.repeat(5 - this.stars)}`);
-        specificSound = 'crash';
-        specificVolume = 0.18; // Slightly louder for bigger crash
-        break;
-        
-      case 'small':
-        // Scooters/cycles - add star but no life loss
-        this.stars = Math.min(this.stars + 1, 5);
-        this.starsText.setText(`WANTED: ${'★'.repeat(this.stars) + '☆'.repeat(5 - this.stars)}`);
-        this.showFloatingText('+1 Star', player.x, player.y - 20, '#ffff00');
-        resetMultiplier = false; // Don't reset multiplier for small vehicles
-        specificSound = 'scream'; // Special scream sound
-        specificVolume = 0.08; // Quieter than everything else but still audible
-        break;
-        
-      case 'special':
-        // Dark truck/buggy - reduce stars, no life loss
-        if (this.stars > 0) {
-          this.stars--;
-          this.starsText.setText(`WANTED: ${'★'.repeat(this.stars) + '☆'.repeat(5 - this.stars)}`);
-          this.showFloatingText('-1 Star', player.x, player.y - 30, '#00ffff');
-        }
-        resetMultiplier = false; // Don't reset multiplier
-        // No specific sound, just bump
-        break;
-        
-      default:
-        // Normal cars - lose 1 life, gain 1 star
-        this.lives--;
-        this.livesText.setText(`LIVES: ${this.lives}`);
-        this.stars = Math.min(this.stars + 1, 5);
-        this.starsText.setText(`WANTED: ${'★'.repeat(this.stars) + '☆'.repeat(5 - this.stars)}`);
-        this.showFloatingText('-1 Life, +1 Star', player.x, player.y - 30, '#ff8800');
-        // No specific sound, just bump
-        break;
-    }
-    
-    // Play bump sound for ALL vehicle collisions
-    if (this.cache.audio.exists('bump')) {
-      this.sound.play('bump', { volume: 0.2 }); // Increased from 0.12
-    }
-    
-    // Play specific sound if there is one
-    if (specificSound && this.cache.audio.exists(specificSound)) {
-      // Small delay to layer the sounds
-      this.time.delayedCall(50, () => {
-        this.sound.play(specificSound, { volume: specificVolume * 1.3 }); // Increased volume
-      });
-    }
-    
-    // Reset multiplier if needed
-    if (resetMultiplier) {
-      this.multiplier = 1;
-      this.multiplierText.setText(`COMBO: x${this.multiplier}`);
-    }
-    
-    // Visual feedback
-    this.cameras.main.shake(200, 0.01);
-    
-    // Destroy the vehicle
-    vehicle.destroy();
-    
-    // Check for game over (only if lives <= 0, not for arrests)
-    if (this.lives <= 0) {
-      // Play crash sound for losing by running out of lives
-      if (this.cache.audio.exists('crash')) {
-        this.sound.play('crash', { volume: 0.25 }); // Added crash sound back
-      }
-      this.gameOver();
-    }
-  }
+
   
   // Show floating text
   showFloatingText(text, x, y, color) {
@@ -1641,8 +1735,10 @@ export class MainScene extends Phaser.Scene {
     this.music = null;
     
     this.score = 0;
-    this.lives = 3;
+    this.lives = 3; // Start with 3 lives instead of 1
     this.level = 1;
+    this.distance = 0;
+    this.lastLevelUp = 0;
     this.gameSpeed = 300;
     this.spawnRate = 1000;
     this.lastScoreUpdate = 0;
@@ -1825,28 +1921,126 @@ export class MainScene extends Phaser.Scene {
       this.physics.add.overlap(this.player, this.enemies, this.hitVehicle, null, this);
       this.physics.add.collider(this.player, this.obstacles);
       
+      // CRITICAL FIX: Restore simple working collision system
+      console.log('🧪 Restoring simple working collision system...');
+      
+      // Verify overlaps were created
+      console.log('🧪 Physics overlaps created successfully');
+      
+      // CRITICAL TEST: Verify physics overlap is working
+      console.log('🧪 Testing physics overlap system...');
+      
+      // Test if collectible collisions work
+      this.time.delayedCall(1000, () => {
+        if (this.player && this.collectibles) {
+          const collectibles = this.collectibles.getChildren();
+          if (collectibles.length > 0) {
+            console.log(`🧪 Found ${collectibles.length} collectibles, testing collision system...`);
+            // Move player close to a collectible to test collision
+            const collectible = collectibles[0];
+            const distance = Phaser.Math.Distance.Between(
+              this.player.x, this.player.y,
+              collectible.x, collectible.y
+            );
+            console.log(`🧪 Distance to collectible: ${distance.toFixed(1)}`);
+            
+            if (distance > 100) {
+              console.log(`🧪 Moving player close to collectible to test collision...`);
+              this.player.x = collectible.x + 30;
+              this.player.y = collectible.y;
+            }
+          }
+        }
+      });
+      
+      // Test if enemy collisions work
+      this.time.delayedCall(2000, () => {
+        if (this.player && this.enemies) {
+          const enemies = this.enemies.getChildren();
+          if (enemies.length > 0) {
+            console.log(`🧪 Found ${enemies.length} enemies, testing collision system...`);
+            
+            // Simple test - just log enemy info
+            const enemy = enemies[0];
+            console.log(`🧪 First enemy: ${enemy.texture?.key}, vehicleType:`, enemy.vehicleType);
+            console.log(`🧪 Enemy position: ${enemy.x}, ${enemy.y}`);
+            console.log(`🧪 Player position: ${this.player.x}, ${this.player.y}`);
+          }
+        }
+      });
+      
       // Debug: Verify overlaps were created
       console.log('🎮 Physics overlaps created successfully');
       console.log('🎮 Player physics body:', this.player.body);
       console.log('🎮 Enemies group size:', this.enemies.children.size);
+      console.log('🎮 Player position:', this.player.x, this.player.y);
+      console.log('🎮 Player body size:', this.player.body.width, this.player.body.height);
+      
+      // CRITICAL: Test if collision detection is working at all
+      console.log('🧪 Testing collision detection system...');
       
       // Test collision by logging when any enemy is added to the group
       this.enemies.on('add', (enemy) => {
         console.log(`🎮 Enemy added to group: ${enemy.texture?.key}, vehicleType:`, enemy.vehicleType);
-      });
-      
-      // Manual collision test - check if player and enemies are overlapping
-      this.time.delayedCall(2000, () => {
-        console.log('🧪 Manual collision test...');
-        if (this.player && this.enemies) {
-          const enemies = this.enemies.getChildren();
-          enemies.forEach((enemy, index) => {
+        console.log(`🎮 Enemy position: ${enemy.x}, ${enemy.y}, body size: ${enemy.body?.width} x ${enemy.body?.height}`);
+        
+        // Test collision detection immediately
+        this.time.delayedCall(100, () => {
+          if (this.player && enemy.active) {
             const distance = Phaser.Math.Distance.Between(
               this.player.x, this.player.y,
               enemy.x, enemy.y
             );
-            console.log(`🧪 Enemy ${index} (${enemy.texture?.key}): distance=${distance.toFixed(1)}, vehicleType:`, enemy.vehicleType);
-          });
+            console.log(`🧪 Distance to ${enemy.texture?.key}: ${distance.toFixed(1)}`);
+            
+            // If very close, test collision manually
+            if (distance < 50) {
+              console.log(`🧪 MANUAL COLLISION TEST with ${enemy.texture?.key}`);
+              this.hitVehicle(this.player, enemy);
+            }
+          }
+        });
+      });
+      
+      // Add manual collision test button for debugging
+      const testBtn = this.add.text(60, 40, '🧪 TEST', {
+        font: 'bold 16px Arial',
+        fill: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 2,
+        backgroundColor: '#7c3aed',
+        padding: { x: 8, y: 4 }
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(20);
+      
+      testBtn.on('pointerdown', () => {
+        console.log('🧪 Manual collision test triggered!');
+        if (this.player && this.enemies) {
+          const enemies = this.enemies.getChildren();
+          if (enemies.length > 0) {
+            // Find the nearest enemy
+            let nearestEnemy = null;
+            let nearestDistance = Infinity;
+            
+            enemies.forEach((enemy, index) => {
+              if (enemy.active) {
+                const distance = Phaser.Math.Distance.Between(
+                  this.player.x, this.player.y,
+                  enemy.x, enemy.y
+                );
+                if (distance < nearestDistance) {
+                  nearestDistance = distance;
+                  nearestEnemy = enemy;
+                }
+                console.log(`🧪 Enemy ${index}: ${enemy.texture?.key}, vehicleType:`, enemy.vehicleType, `distance: ${distance.toFixed(1)}`);
+              }
+            });
+            
+            if (nearestEnemy) {
+              console.log(`🧪 Testing collision with nearest enemy: ${nearestEnemy.texture?.key} at distance ${nearestDistance.toFixed(1)}`);
+              // Force collision test
+              this.hitVehicle(this.player, nearestEnemy);
+            }
+          }
         }
       });
       

@@ -1225,7 +1225,7 @@ export class MenuScene extends Phaser.Scene {
     currentY += 35;
     
     const vehicles = [
-      { icon: '🚑', name: 'Ambulance', effect: '+1 Life (keeps multiplier)', color: '#00ff00' },
+      { icon: '🚑', name: 'r', effect: '+1 Life (keeps multiplier)', color: '#00ff00' },
       { icon: '🚔', name: 'Police', effect: 'Instant Arrest (GAME OVER)', color: '#ff0000' },
       { icon: '🚛', name: 'Truck', effect: '-2 Lives', color: '#ff8800' },
       { icon: '🛵', name: 'Scooter/Cycle', effect: '+1 Star (no life loss)', color: '#ffff00' },
