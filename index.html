@@ -7,7 +7,7 @@
     <title>The Bay Harbor Gooner | Meme Coin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.13.3/cdn.min.js"></script>
-    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>">
     <meta name="description" content="The Bay Harbor Gooner - A killer meme coin inspired by the Bay Harbor Butcher from Dexter">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
@@ -89,24 +89,6 @@
                 <a href="#" class="hover:text-red-400 transition font-medium">Whitepaper</a>
             </div>
 
-            <!-- Contact Button -->
-            <a href="#"
-                class="hidden md:block bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-full transition font-medium text-lg">Buy
-                $GOONER</a>
-
-            <!-- Animated Mobile Menu Button -->
-            <button @click="mobileMenuOpen = !mobileMenuOpen"
-                    class="md:hidden text-white z-40 p-2 fixed top-6 right-4 focus:outline-none"
-                    aria-label="Toggle menu">
-                <div class="w-8 h-8 relative flex justify-center items-center">
-                    <span class="absolute h-1 w-8 bg-white rounded-full transform transition-all duration-300"
-                          :class="mobileMenuOpen ? 'rotate-45 translate-y-0' : '-translate-y-2'"></span>
-                    <span class="absolute h-1 w-8 bg-white rounded-full transition-all duration-300"
-                          :class="mobileMenuOpen ? 'opacity-0' : 'opacity-100'"></span>
-                    <span class="absolute h-1 w-8 bg-white rounded-full transform transition-all duration-300"
-                          :class="mobileMenuOpen ? '-rotate-45 translate-y-0' : 'translate-y-2'"></span>
-                </div>
-            </button>
 
             <!-- Enhanced Mobile Menu -->
             <div x-show="mobileMenuOpen" x-transition:enter="transition ease-out duration-300"
@@ -190,8 +172,7 @@
                 </h1>
                 <p class="text-xl md:text-2xl mb-8">Where the gooners have a partner.</p>
                 <a href="#"
-                    class="inline-block bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-4 rounded-full transition text-lg">Join
-                    the Hunt</a>
+                    class="inline-block bg-red-600 hover:bg-red-700 text-white font-bold px-8 py-4 rounded-full transition text-lg">Play With Yourself</a>
             </div>
         </div>
 
@@ -395,23 +376,6 @@
         </div>
     </section>
 
-    <!-- CTA Section -->
-    <section class="py-16 bg-red-900 text-white relative overflow-hidden">
-        <div class="absolute top-0 left-0 w-full h-full overflow-hidden opacity-10">
-            <div class="w-full h-full bg-gradient-to-r from-red-900 to-gray-900"></div>
-        </div>
-
-        <div class="container mx-auto px-4 relative z-10">
-            <div class="max-w-3xl mx-auto text-center">
-                <h2 class="text-3xl md:text-5xl font-bold mb-6">Ready to Join the Hunt?</h2>
-                <p class="text-xl mb-8">The ritual begins at midnight. Don't let this opportunity slip away like evidence in the bay.</p>
-                <a href="#" class="inline-block bg-white hover:bg-gray-100 text-red-900 font-bold text-xl px-10 py-4 rounded-full transition">
-                    Buy $GOONER Now
-                </a>
-                <p class="mt-6 text-red-200">Available on JUPITER</p>
-            </div>
-        </div>
-    </section>
 
     <!-- Contact Form Section -->
     <section class="py-16 bg-gray-100">

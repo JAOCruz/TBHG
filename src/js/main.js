@@ -1,4 +1,6 @@
 // Main JavaScript file for The Bay Harbor Gooner
+console.log('🔪 MAIN.JS: The Bay Harbor Gooner - Starting...');
+
 let audioPlayer = null;
 
 // Function to initialize the Bay Harbor Gooner audio player
@@ -16,258 +18,223 @@ async function initAudioPlayer() {
   }
 }
 
+// Function to launch the game
+async function launchGame() {
+  try {
+    console.log('🎮 Launching Bay Harbor Gooner Game...');
+    const { BayHarborGame } = await import('./game/game.js');
+    
+    // Create game instance if it doesn't exist
+    if (!window.gameInstance) {
+      window.gameInstance = new BayHarborGame();
+    }
+    
+    // Check if game is already running
+    if (window.gameInstance.container) {
+      console.log('🎮 Game already running');
+      return;
+    }
+    
+    // Initialize the game
+    window.gameInstance.init(document.body, () => {
+      console.log('🎮 Game closed');
+    });
+    
+    console.log('🎮 Game launched successfully');
+  } catch (error) {
+    console.error('❌ Error launching game:', error);
+    alert('Error launching game. Check console for details.');
+  }
+}
+
+// Function to show leaderboard
+async function showLeaderboard() {
+  try {
+    console.log('🏆 Opening leaderboard...');
+    const { LeaderboardUI } = await import('./leaderboard.js');
+    
+    if (!window.leaderboardUI) {
+      window.leaderboardUI = new LeaderboardUI();
+    }
+    
+    window.leaderboardUI.showLeaderboard();
+  } catch (error) {
+    console.error('❌ Error opening leaderboard:', error);
+    alert('Error opening leaderboard. Check console for details.');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('🔪 The Bay Harbor Gooner - The ritual begins...');
+  console.log('🔪 MAIN.JS: DOM Content Loaded');
   
   // Auto-load the music player when page loads
   console.log('🎵 Auto-loading Bay Harbor Gooner music player with lyrics...');
   await initAudioPlayer();
   
-  // Check if mobile
-  const isMobile = window.innerWidth < 768;
-  
-  // Add Bay Harbor Gooner music toggle button (now for closing/opening)
-  const addMusicToggle = () => {
-    console.log('📍 Adding Bay Harbor Gooner music toggle button...');
+  // Create buttons after a short delay
+  setTimeout(() => {
+    console.log('🎮 Creating functional buttons...');
     
-    const toggleButton = document.createElement('button');
-    toggleButton.id = 'music-toggle-button';
-    
-    // Position differently based on screen size
-    if (isMobile) {
-      toggleButton.className = 'fixed top-4 right-4 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg transition-all duration-300';
-    } else {
-      toggleButton.className = 'fixed bottom-4 right-4 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg transition-all duration-300';
-    }
-    
-    // Ensure maximum z-index and explicit positioning
-    toggleButton.style.cssText = `
-      position: fixed !important;
-      ${isMobile ? 'top: 16px !important;' : 'bottom: 16px !important;'}
-      right: 16px !important;
-      z-index: 99999 !important;
-      background-color: #dc2626 !important;
-      color: white !important;
-      padding: 12px !important;
-      border-radius: 50% !important;
-      border: none !important;
-      cursor: pointer !important;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
-      width: 56px !important;
-      height: 56px !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
+    // Create PLAY button that actually launches the game
+    const playButton = document.createElement('button');
+    playButton.innerHTML = '🎮 PLAY GAME';
+    playButton.id = 'play-game-button';
+    playButton.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #dc2626;
+      color: white;
+      border: none;
+      padding: 15px 25px;
+      border-radius: 25px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 99999;
+      box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
+      transition: all 0.3s ease;
     `;
     
-    // Start with close icon since player is already open
-    toggleButton.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    `;
-    toggleButton.title = 'Close Bay Harbor Gooner Music Player';
+    playButton.addEventListener('mouseenter', () => {
+      playButton.style.transform = 'translateY(-2px)';
+      playButton.style.boxShadow = '0 6px 20px rgba(220, 38, 38, 0.4)';
+    });
     
-    // Toggle player visibility
-    toggleButton.addEventListener('click', async (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      
-      console.log('🎵 Music toggle button clicked!');
-      
+    playButton.addEventListener('mouseleave', () => {
+      playButton.style.transform = 'translateY(0)';
+      playButton.style.boxShadow = '0 4px 15px rgba(220, 38, 38, 0.3)';
+    });
+    
+    playButton.addEventListener('click', () => {
+      launchGame();
+    });
+    
+    document.body.appendChild(playButton);
+    console.log('✅ Functional play button added');
+    
+    // Create music toggle button
+    const musicButton = document.createElement('button');
+    musicButton.innerHTML = '🎵';
+    musicButton.id = 'music-toggle-button';
+    musicButton.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: #dc2626;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 50%;
+      font-size: 20px;
+      cursor: pointer;
+      z-index: 99999;
+      width: 56px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
+      transition: all 0.3s ease;
+    `;
+    
+    musicButton.addEventListener('mouseenter', () => {
+      musicButton.style.transform = 'translateY(-2px)';
+      musicButton.style.boxShadow = '0 6px 20px rgba(220, 38, 38, 0.4)';
+    });
+    
+    musicButton.addEventListener('mouseleave', () => {
+      musicButton.style.transform = 'translateY(0)';
+      musicButton.style.boxShadow = '0 4px 15px rgba(220, 38, 38, 0.3)';
+    });
+    
+    musicButton.addEventListener('click', async () => {
       if (!audioPlayer) {
         console.log('🔄 Re-opening Bay Harbor Gooner music player...');
-        
-        // Show loading state
-        toggleButton.disabled = true;
-        toggleButton.style.opacity = '0.5';
-        toggleButton.innerHTML = '⏳';
-        
-        try {
-          const success = await initAudioPlayer();
-          
-          // Re-enable button
-          toggleButton.disabled = false;
-          toggleButton.style.opacity = '1';
-          
-          if (success) {
-            toggleButton.innerHTML = `
-              <svg xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            `;
-            toggleButton.title = 'Close Bay Harbor Gooner Music Player';
-            console.log('✅ Bay Harbor Gooner player with lyrics re-opened');
-          } else {
-            // Reset button if failed
-            toggleButton.innerHTML = `
-              <svg xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-              </svg>
-            `;
-            toggleButton.title = 'Open Bay Harbor Gooner Music Player';
-          }
-        } catch (error) {
-          console.error('❌ Error re-opening player:', error);
-          // Reset button
-          toggleButton.disabled = false;
-          toggleButton.style.opacity = '1';
-          toggleButton.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-            </svg>
-          `;
-          toggleButton.title = 'Open Bay Harbor Gooner Music Player';
-        }
+        musicButton.innerHTML = '⏳';
+        const success = await initAudioPlayer();
+        musicButton.innerHTML = success ? '🎵' : '❌';
       } else {
         console.log('❌ Closing Bay Harbor Gooner music player...');
         try {
           audioPlayer.close();
           audioPlayer = null;
-          
-          toggleButton.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-            </svg>
-          `;
-          toggleButton.title = 'Open Bay Harbor Gooner Music Player';
-          console.log('✅ Bay Harbor Gooner player closed');
+          musicButton.innerHTML = '🎵';
         } catch (error) {
           console.error('❌ Error closing music player:', error);
         }
       }
     });
     
-    // Handle window resize for responsive layout
-    window.addEventListener('resize', () => {
-      const isMobileNow = window.innerWidth < 768;
-      if (isMobileNow) {
-        toggleButton.style.top = '16px';
-        toggleButton.style.bottom = 'auto';
-      } else {
-        toggleButton.style.bottom = '16px';
-        toggleButton.style.top = 'auto';
-      }
-    });
+    document.body.appendChild(musicButton);
+    console.log('✅ Functional music button added');
     
-    // Add to page
-    document.body.appendChild(toggleButton);
-    console.log('✅ Bay Harbor Gooner music toggle button added');
-  };
-  
-  // Add lyrics toggle button in top-left (only on desktop)
-  const addLyricsToggle = () => {
-    // On mobile, we don't need a separate lyrics toggle
-    if (isMobile) return;
-    
-    const lyricsButton = document.createElement('button');
-    lyricsButton.id = 'lyrics-toggle-main';
-    lyricsButton.className = 'fixed top-4 left-4 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg transition-all duration-300';
-    lyricsButton.style.cssText = `
-      position: fixed !important;
-      top: 16px !important;
-      left: 16px !important;
-      z-index: 99998 !important;
-      background-color: #dc2626 !important;
-      color: white !important;
-      padding: 12px !important;
-      border-radius: 50% !important;
-      border: none !important;
-      cursor: pointer !important;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
-      width: 56px !important;
-      height: 56px !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
+    // Create leaderboard button
+    const leaderboardButton = document.createElement('button');
+    leaderboardButton.innerHTML = '🏆 SCORES';
+    leaderboardButton.id = 'leaderboard-button';
+    leaderboardButton.style.cssText = `
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: #dc2626;
+      color: white;
+      border: none;
+      padding: 15px 25px;
+      border-radius: 25px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 99999;
+      box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
+      transition: all 0.3s ease;
     `;
-    lyricsButton.innerHTML = '📝';
-    lyricsButton.title = 'Toggle Bay Harbor Gooner Lyrics';
     
-    lyricsButton.addEventListener('click', () => {
-      if (audioPlayer) {
-        // Toggle lyrics through the player
-        const lyricsContainer = document.getElementById('bay-harbor-lyrics');
-        if (lyricsContainer) {
-          if (lyricsContainer.style.display === 'none') {
-            audioPlayer.showLyrics();
-          } else {
-            audioPlayer.hideLyrics();
-          }
-        }
-      } else {
-        console.log('⚠️ Music player not loaded yet');
-      }
+    leaderboardButton.addEventListener('mouseenter', () => {
+      leaderboardButton.style.transform = 'translateY(-2px)';
+      leaderboardButton.style.boxShadow = '0 6px 20px rgba(220, 38, 38, 0.4)';
     });
     
-    // Hide on mobile
-    window.addEventListener('resize', () => {
-      if (window.innerWidth < 768) {
-        lyricsButton.style.display = 'none';
-      } else {
-        lyricsButton.style.display = 'flex';
-      }
+    leaderboardButton.addEventListener('mouseleave', () => {
+      leaderboardButton.style.transform = 'translateY(0)';
+      leaderboardButton.style.boxShadow = '0 4px 15px rgba(220, 38, 38, 0.3)';
     });
     
-    document.body.appendChild(lyricsButton);
-    console.log('✅ Bay Harbor Gooner lyrics toggle button added');
-  };
-  
-  // Add some dark atmosphere effects
-  const addBloodDropEffect = () => {
-    const header = document.querySelector('header');
-    if (header) {
-      console.log('🩸 Adding blood drop effects...');
-      setInterval(() => {
-        const drop = document.createElement('div');
-        drop.className = 'absolute w-1 h-8 bg-red-600 rounded-b-full opacity-70 animate-pulse';
-        drop.style.left = Math.random() * 100 + '%';
-        drop.style.top = '0';
-        drop.style.animationDuration = (Math.random() * 3 + 2) + 's';
-        
-        header.appendChild(drop);
-        
-        // Remove the drop after animation
-        setTimeout(() => {
-          if (drop.parentNode) {
-            drop.parentNode.removeChild(drop);
-          }
-        }, 5000);
-      }, 15000); // Every 15 seconds
-    } else {
-      console.warn('⚠️ Header element not found for blood drops');
-    }
-  };
-  
-  // Initialize features
-  console.log('🚀 Initializing Bay Harbor Gooner features...');
-  addBloodDropEffect();
-  addMusicToggle();
-  addLyricsToggle();
-  
-  // Add click tracking for analytics
-  document.addEventListener('click', (e) => {
-    if (e.target.textContent?.includes('$GOONER') || e.target.textContent?.includes('Buy')) {
-      console.log('💰 User interested in buying $GOONER - The hunt begins!');
-    }
-  });
-  
-  // Verify everything is working
-  setTimeout(() => {
-    const button = document.getElementById('music-toggle-button');
-    const player = document.getElementById('bay-harbor-player');
-    const lyricsButton = document.getElementById('lyrics-toggle-main');
+    leaderboardButton.addEventListener('click', () => {
+      showLeaderboard();
+    });
     
-    if (button && player) {
-      console.log('✅ Bay Harbor Gooner music player with lyrics is auto-loaded and ready!');
-      console.log('🎵 New tracks loaded: Double Life Gooner, Black Gooner, Future Gooning, We Are The Gooners');
-      console.log('📝 Click any song to view lyrics in the left panel!');
-      
+    document.body.appendChild(leaderboardButton);
+    console.log('✅ Functional leaderboard button added');
+    
+    // Add responsive behavior
+    const updateButtonPositions = () => {
+      const isMobile = window.innerWidth < 768;
       if (isMobile) {
-        console.log('📱 Mobile layout active - lyrics will appear below player');
+        // On mobile, move music button to top-right corner
+        musicButton.style.bottom = 'auto';
+        musicButton.style.top = '80px';
+        musicButton.style.right = '20px';
+        
+        // Move leaderboard to top-left
+        leaderboardButton.style.top = '20px';
+        leaderboardButton.style.left = '20px';
+      } else {
+        // On desktop, keep music at bottom-right
+        musicButton.style.top = 'auto';
+        musicButton.style.bottom = '20px';
+        musicButton.style.right = '20px';
+        
+        // Keep leaderboard at top-left
+        leaderboardButton.style.top = '20px';
+        leaderboardButton.style.left = '20px';
       }
-    } else {
-      console.error('❌ Something went wrong with auto-loading');
-    }
+    };
+    
+    window.addEventListener('resize', updateButtonPositions);
+    updateButtonPositions(); // Call once to set initial positions
+    
   }, 1000);
-}); 
+});
+
+console.log('🔪 MAIN.JS: Script loaded completely'); 
