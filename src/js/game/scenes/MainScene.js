@@ -1011,7 +1011,14 @@ export class MainScene extends Phaser.Scene {
     vehicle.setDepth(5); // Above background but below UI
     vehicle.setAlpha(1); // Fully opaque
     
-    console.log(`🚗 Vehicle spawned: ${vehicleType.sprite} at (${vehicle.x}, ${vehicle.y}), visible: ${vehicle.visible}, depth: ${vehicle.depth}`);
+    // Extra logging for cycles to debug the issue
+    if (vehicleType.type === 'small') {
+      console.log(`🛵 CYCLE SPAWNED: ${vehicleType.sprite} at (${vehicle.x}, ${vehicle.y})`);
+      console.log(`🛵 CYCLE TYPE: ${vehicleType.type}, lives: ${vehicleType.lives}, stars: ${vehicleType.stars}`);
+      console.log(`🛵 CYCLE VEHICLE TYPE ASSIGNED:`, vehicle.vehicleType);
+    }
+    
+    console.log(`🚗 Vehicle spawned: ${vehicleType.sprite} at (${vehicle.x}, ${vehicle.y}), type: ${vehicleType.type}, lives: ${vehicleType.lives}, stars: ${vehicleType.stars}`);
   }
   
   // Spawn police car
@@ -1163,6 +1170,8 @@ export class MainScene extends Phaser.Scene {
   
   // Handle collecting blood slides
   collectItem(player, collectible) {
+    console.log(`🩸 COLLISION DETECTED with collectible at (${collectible.x}, ${collectible.y})`);
+    
     // Play collection sound
     if (this.sound.get('collect')) {
       this.sound.play('collect', { volume: 0.3 });
@@ -1179,14 +1188,25 @@ export class MainScene extends Phaser.Scene {
   
   // Handle hitting vehicles
   hitVehicle(player, vehicle) {
-    if (!vehicle.vehicleType) return;
+    if (!vehicle.vehicleType) {
+      console.warn('🚗 Vehicle hit but no vehicleType defined:', vehicle);
+      return;
+    }
     
     const vehicleType = vehicle.vehicleType;
+    console.log(`🚗 Vehicle collision detected:`, {
+      sprite: vehicleType.sprite,
+      type: vehicleType.type,
+      lives: vehicleType.lives,
+      stars: vehicleType.stars,
+      fullVehicleType: vehicleType
+    });
     
     // Handle different vehicle types
     switch (vehicleType.type) {
       case 'police':
         // Instant arrest - game over
+        console.log('🚔 Police hit - GAME OVER!');
         this.gameOver('ARRESTED');
         break;
         
@@ -1199,9 +1219,12 @@ export class MainScene extends Phaser.Scene {
         
       case 'small':
         // +1 star, no life loss
+        const oldStars = this.stars;
+        const oldLives = this.lives;
         this.stars = Math.min(this.stars + 1, 5);
         this.showFloatingText('+1 STAR', vehicle.x, vehicle.y, '#ffff00');
-        console.log(`🛵 Small vehicle hit! Stars: ${this.stars}`);
+        console.log(`🛵 Small vehicle hit! Stars: ${oldStars} → ${this.stars}, Lives: ${oldLives} (unchanged)`);
+        console.log(`🛵 Vehicle details: sprite="${vehicleType.sprite}", type="${vehicleType.type}"`);
         break;
         
       case 'truck':
@@ -1214,6 +1237,7 @@ export class MainScene extends Phaser.Scene {
         
       default:
         // Normal cars: -1 life, reset multiplier
+        console.log(`🚗 Default case hit for vehicle type: "${vehicleType.type}"`);
         this.lives -= 1;
         this.multiplier = 1;
         this.showFloatingText('-1 LIFE', vehicle.x, vehicle.y, '#ff0000');
@@ -1784,10 +1808,48 @@ export class MainScene extends Phaser.Scene {
   // Setup collisions and spawning after player is created
   setupCollisionsAndSpawning() {
     console.log('🎮 Setting up collisions and spawning...');
+    
+    // Debug: Check all objects exist
+    console.log('🎮 Objects check:', {
+      player: !!this.player,
+      enemies: !!this.enemies,
+      collectibles: !!this.collectibles,
+      obstacles: !!this.obstacles,
+      playerBody: !!this.player?.body,
+      enemiesSize: this.enemies?.children?.size || 0
+    });
+    
     if (this.player && this.enemies && this.collectibles && this.obstacles) {
+      // Set up physics overlaps
       this.physics.add.overlap(this.player, this.collectibles, this.collectItem, null, this);
       this.physics.add.overlap(this.player, this.enemies, this.hitVehicle, null, this);
       this.physics.add.collider(this.player, this.obstacles);
+      
+      // Debug: Verify overlaps were created
+      console.log('🎮 Physics overlaps created successfully');
+      console.log('🎮 Player physics body:', this.player.body);
+      console.log('🎮 Enemies group size:', this.enemies.children.size);
+      
+      // Test collision by logging when any enemy is added to the group
+      this.enemies.on('add', (enemy) => {
+        console.log(`🎮 Enemy added to group: ${enemy.texture?.key}, vehicleType:`, enemy.vehicleType);
+      });
+      
+      // Manual collision test - check if player and enemies are overlapping
+      this.time.delayedCall(2000, () => {
+        console.log('🧪 Manual collision test...');
+        if (this.player && this.enemies) {
+          const enemies = this.enemies.getChildren();
+          enemies.forEach((enemy, index) => {
+            const distance = Phaser.Math.Distance.Between(
+              this.player.x, this.player.y,
+              enemy.x, enemy.y
+            );
+            console.log(`🧪 Enemy ${index} (${enemy.texture?.key}): distance=${distance.toFixed(1)}, vehicleType:`, enemy.vehicleType);
+          });
+        }
+      });
+      
       console.log('🎮 Collisions set up successfully');
     } else {
       console.error('🎮 Cannot set up collisions - missing objects:', {
