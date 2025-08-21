@@ -25,6 +25,7 @@
   "dependencies": {
     "canvas": "^3.2.0",
     "phaser": "^3.90.0",
+    "phaser3-rex-plugins": "^1.80.16",
     "vite": "^4.5.0",
     "webamp": "^2.2.0"
   }

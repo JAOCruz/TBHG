@@ -98,7 +98,7 @@ export class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(5);
     
     // Tagline with classic game feel
-    this.add.text(this.cameras.main.width / 2, 170, '"The Dark Passenger Takes Over"', {
+    this.add.text(this.cameras.main.width / 2, 170, '"The Dark Passenger Takes Over, With just one hand"', {
       fontFamily: 'Courier New, monospace',
       fontSize: '16px',
       fontStyle: 'italic',

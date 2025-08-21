@@ -27,10 +27,13 @@ export class MainScene extends Phaser.Scene {
     // New systems
     this.stars = 0; // Wanted level (0-5)
     this.multiplier = 1; // Score multiplier (1-8)
+    this.starMultiplier = 1; // Star-based multiplier (1x to 5x)
     
     // Police system
     this.policeCars = [];
-    this.policeSpawnRate = 3000; // Separate spawn rate for police
+    this.policeSpawnRate = 1000; // Much faster initial spawn rate (was 3000)
+    this.policeBurstCooldown = 0; // Cooldown between police bursts
+    this.isPoliceBurstActive = false; // Track if a burst is currently spawning
     
     // Car selection and physics
     this.selectedCar = localStorage.getItem('selectedCar') || 'van';
@@ -89,7 +92,18 @@ export class MainScene extends Phaser.Scene {
     console.log('🎵 MainScene received music state:', this.receivedMusicState);
   }
 
-  create() {
+  create(data) {
+    console.log('🎮 MainScene.create() called with data:', data);
+    
+    // Reset game state to ensure clean start
+    this.resetGameState();
+    
+    // Check if this is a restart and we have music state to restore
+    if (data && data.musicState) {
+      console.log('🎵 Restoring music state from previous game');
+      this.receivedMusicState = data.musicState;
+    }
+    
     console.log('🎮 MainScene: Starting game...');
     
     // Refresh selected car from localStorage (in case it was changed in menu)
@@ -121,11 +135,15 @@ export class MainScene extends Phaser.Scene {
       this.collectibles = this.physics.add.group();
       this.obstacles = this.physics.add.group();
       this.policeCars = this.physics.add.group(); // For police AI behavior
+      
+      // Initialize particle system for effects - use the correct Phaser API
+      this.particles = this.add.particles;
       console.log('🎮 Physics groups created successfully:', {
         enemies: !!this.enemies,
         collectibles: !!this.collectibles,
         obstacles: !!this.obstacles,
-        policeCars: !!this.policeCars
+        policeCars: !!this.policeCars,
+        particles: !!this.particles
       });
     } catch (error) {
       console.error('🎮 Error creating physics groups:', error);
@@ -134,6 +152,7 @@ export class MainScene extends Phaser.Scene {
       this.collectibles = this.add.group();
       this.obstacles = this.add.group();
       this.policeCars = this.add.group();
+      this.particles = null;
     }
     
     // Initialize game state variables
@@ -196,6 +215,12 @@ export class MainScene extends Phaser.Scene {
     // Wait a frame to ensure everything is properly initialized
     this.time.delayedCall(100, () => {
       this.setupCollisionsAndSpawning();
+      
+      // Check if spawning system needs to be restarted (for game restarts)
+      if (!this.collectibleTimer || !this.vehicleTimer || !this.policeTimer) {
+        console.log('🎮 Spawning system not initialized, restarting...');
+        this.restartSpawning();
+      }
     });
     
     // Debug: Show all objects after 5 seconds
@@ -205,6 +230,16 @@ export class MainScene extends Phaser.Scene {
     
     // Create UI
     this.createUI();
+    
+    // Debug: Show current game state
+    console.log('🎮 Scene created with state:', {
+      stars: this.stars,
+      lives: this.lives,
+      score: this.score,
+      collectibleTimer: !!this.collectibleTimer,
+      vehicleTimer: !!this.vehicleTimer,
+      policeTimer: !!this.policeTimer
+    });
     
     // Create mobile touch controls if on mobile
     if (this.isMobile) {
@@ -696,6 +731,16 @@ export class MainScene extends Phaser.Scene {
       strokeThickness: 1
     }).setDepth(10);
     
+    // Star multiplier display
+    this.starMultiplierText = this.add.text(300, footerY, 'STAR: x1', {
+      fontFamily: 'Courier New, monospace',
+      fontSize: '14px',
+      fontStyle: 'bold',
+      fill: '#ff8800',
+      stroke: '#000000',
+      strokeThickness: 1
+    }).setDepth(10);
+    
     // Control instructions in retro style
     const isMobile = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
@@ -1056,13 +1101,14 @@ export class MainScene extends Phaser.Scene {
   startSpawning() {
     console.log('🎮 Starting object spawning...');
     
-    // Spawn collectibles (blood slides) every 2-3 seconds
+    // Spawn collectibles (new floating items) every 1.5-2.5 seconds (more frequent)
     this.collectibleTimer = this.time.addEvent({
-      delay: Phaser.Math.Between(2000, 3000),
+      delay: Phaser.Math.Between(1500, 2500),
       callback: this.spawnCollectible,
       callbackScope: this,
       loop: true
     });
+    console.log('🎮 Collectible timer created:', this.collectibleTimer);
     
     // Spawn vehicles every 1-2 seconds (more frequent for better gameplay)
     this.vehicleTimer = this.time.addEvent({
@@ -1071,79 +1117,244 @@ export class MainScene extends Phaser.Scene {
       callbackScope: this,
       loop: true
     });
+    console.log('🎮 Vehicle timer created:', this.vehicleTimer);
     
     // Spawn police cars based on wanted level
     this.policeTimer = this.time.addEvent({
-      delay: Phaser.Math.Between(3000, 5000),
+      delay: Phaser.Math.Between(2000, 3500), // Reduced from 3000-5000 to 2000-3500 for more frequent spawning
       callback: this.spawnPolice,
       callbackScope: this,
       loop: true
     });
+    console.log('🎮 Police timer created:', this.policeTimer);
+    
+    // Dynamic police spawn rate based on stars
+    this.updatePoliceSpawnRate();
+    
+    console.log('🎮 All spawning timers created successfully');
   }
   
-  // Spawn a collectible (blood slide)
+  // Restart spawning system (for game restarts)
+  restartSpawning() {
+    console.log('🎮 Restarting spawning system...');
+    
+    // Destroy existing timers if they exist
+    if (this.collectibleTimer) this.collectibleTimer.destroy();
+    if (this.vehicleTimer) this.vehicleTimer.destroy();
+    if (this.policeTimer) this.policeTimer.destroy();
+    
+    // Reset police state
+    this.policeBurstCooldown = 0;
+    this.isPoliceBurstActive = false;
+    
+    // Start spawning again
+    this.startSpawning();
+    
+    console.log('🎮 Spawning system restarted successfully');
+  }
+  
+  // Spawn a collectible (new floating items system)
   spawnCollectible() {
     if (!this.collectibles) {
       console.warn('🎮 Collectibles group not initialized');
       return;
     }
     
+    // Check current potion count on screen
+    const currentPotions = this.collectibles.getChildren().length;
+    
+    console.log(`🎲 Current potions on screen: ${currentPotions}`);
+    
+    // Limit potions based on current count
+    if (currentPotions >= 3) {
+      console.log('🎲 Maximum potions reached (3), skipping spawn');
+      return; // Don't spawn if 3+ potions already exist
+    }
+    
+    // Reduce spawn chance if multiple potions exist
+    let spawnChance = 1.0; // 100% chance normally
+    if (currentPotions === 2) {
+      spawnChance = 0.05; // Only 5% chance if 2 potions exist
+      console.log('🎲 2 potions on screen - reduced spawn chance to 5%');
+    } else if (currentPotions === 1) {
+      spawnChance = 0.3; // 30% chance if 1 potion exists
+      console.log('🎲 1 potion on screen - reduced spawn chance to 30%');
+    }
+    
+    // Random check for spawn
+    if (Math.random() > spawnChance) {
+      console.log('🎲 Spawn chance failed, skipping collectible');
+      return;
+    }
+    
+    console.log(`🎲 Spawn chance passed (${(spawnChance * 100).toFixed(0)}%), proceeding with spawn`);
+    
     const roadTop = this.cameras.main.height * 0.2;
     const roadBottom = this.cameras.main.height * 0.9;
     const y = Phaser.Math.Between(roadTop + 50, roadBottom - 50);
     
-    const collectible = this.collectibles.create(this.cameras.main.width + 50, y, 'collectible');
+    // New collectible types with rarity and effects
+    const collectibleTypes = [
+      // 🩸 Gooner Blood - Rare (15% chance, was 40%)
+      { 
+        sprite: 'blood', 
+        name: 'Gooner Blood',
+        effect: 'life',
+        value: 1,
+        rarity: 15,
+        color: '#ff0000',
+        description: '+1 LIFE'
+      },
+      
+      // 💧 Water - Rare (8% chance, was 25%) 
+      { 
+        sprite: 'water', 
+        name: 'Water',
+        effect: 'star',
+        value: -1,
+        rarity: 8,
+        color: '#00ffff',
+        description: '-1 STAR'
+      },
+      
+      // 🟡 Golden Shower - Common (25% chance, was 20%)
+      { 
+        sprite: 'yellow', 
+        name: 'Golden Shower',
+        effect: 'points',
+        value: 5,
+        rarity: 25,
+        color: '#ffff00',
+        description: '+5 POINTS'
+      },
+      
+      // 🟣 Goon Liquid - Very Common (35% chance, was 10%)
+      { 
+        sprite: 'goon', 
+        name: 'Goon Liquid',
+        effect: 'points',
+        value: 3,
+        rarity: 35,
+        color: '#800080',
+        description: '+3 POINTS'
+      },
+      
+      // 💩 Poop - Uncommon (12% chance, was 3%)
+      { 
+        sprite: 'poop', 
+        name: 'Poop',
+        effect: 'points',
+        value: -5,
+        rarity: 12,
+        color: '#8B4513',
+        description: '-5 POINTS'
+      },
+      
+      // 🤮 Puke - Rare (5% chance, was 2%)
+      { 
+        sprite: 'puke', 
+        name: 'Puke',
+        effect: 'points',
+        value: -10,
+        rarity: 5,
+        color: '#90EE90',
+        description: '-10 POINTS'
+      }
+    ];
+    
+    // Select collectible based on rarity
+    const random = Math.random() * 100;
+    let selectedCollectible = null;
+    let cumulativeRarity = 0;
+    
+    for (const collectible of collectibleTypes) {
+      cumulativeRarity += collectible.rarity;
+      if (random <= cumulativeRarity) {
+        selectedCollectible = collectible;
+        break;
+      }
+    }
+    
+    // Fallback to blood if nothing selected
+    if (!selectedCollectible) {
+      selectedCollectible = collectibleTypes[0]; // Gooner Blood
+    }
+    
+    console.log(`🎲 Spawning collectible: ${selectedCollectible.name} (${selectedCollectible.description}) - Rarity: ${selectedCollectible.rarity}%`);
+    
+    // Create the collectible sprite
+    const collectible = this.collectibles.create(this.cameras.main.width + 50, y, selectedCollectible.sprite);
     
     // Check if sprite was created successfully
     if (!collectible) {
-      console.error('🩸 Failed to create collectible');
+      console.error(`🎲 Failed to create collectible: ${selectedCollectible.name}`);
       return;
     }
     
-    collectible.setScale(1.5); // Bigger collectibles - 1.5x scale instead of 0.5x
+    // Store collectible data
+    collectible.collectibleData = selectedCollectible;
+    
+    // Set properties
+    collectible.setScale(1.35); // 10% smaller than 1.5 (was 1.5)
     collectible.speed = Phaser.Math.Between(150, 250);
     collectible.body.setSize(30, 30);
     
+    // Add dynamic glow effects based on potion type using Phaser's built-in glow
+    try {
+      // Use Phaser's built-in glow effect
+      this.addFallbackPotionGlow(collectible, selectedCollectible.sprite);
+      
+      console.log(`✨ Added glow effect to ${selectedCollectible.name}`);
+    } catch (error) {
+      console.log(`⚠️ Error applying potion glow effect:`, error);
+    }
+    
     // Make sure collectible is visible and at correct depth
     collectible.setVisible(true);
-    collectible.setDepth(5); // Above background but below UI
-    collectible.setAlpha(1); // Fully opaque
+    collectible.setDepth(5);
+    collectible.setAlpha(1);
     
-    console.log(`🩸 Collectible spawned at (${collectible.x}, ${collectible.y}), visible: ${collectible.visible}, depth: ${collectible.depth}`);
+    console.log(`🎲 ${selectedCollectible.name} spawned at (${collectible.x}, ${collectible.y}), effect: ${selectedCollectible.description}`);
   }
   
   // Spawn a vehicle (enemy)
   spawnVehicle() {
+    console.log('🚗 SpawnVehicle called - checking groups...');
+    
     if (!this.enemies) {
       console.warn('🎮 Enemies group not initialized');
       return;
     }
     
+    console.log('🚗 Enemies group exists, size:', this.enemies.children.size);
+    
     const roadTop = this.cameras.main.height * 0.2;
     const roadBottom = this.cameras.main.height * 0.9;
     const y = Phaser.Math.Between(roadTop + 50, roadBottom - 50);
     
+    console.log('🚗 Road boundaries - Top:', roadTop, 'Bottom:', roadBottom, 'Selected Y:', y);
+    
     // Array of vehicle types with their properties
     const vehicleTypes = [
-      // Normal cars (-1 life)
-      { sprite: 'bus', lives: -1, stars: 0, type: 'normal' },
-      { sprite: 'taxi', lives: -1, stars: 0, type: 'normal' },
-      { sprite: 'sports_race', lives: -1, stars: 0, type: 'normal' },
-      { sprite: 'trucktank', lives: -1, stars: 0, type: 'normal' },
-      { sprite: 'vendor', lives: -1, stars: 0, type: 'normal' },
-      { sprite: 'sports_yellow', lives: -1, stars: 0, type: 'normal' },
-      { sprite: 'suv_closed', lives: -1, stars: 0, type: 'normal' },
-      { sprite: 'towtruck', lives: -1, stars: 0, type: 'normal' },
-      { sprite: 'vintage', lives: -1, stars: 0, type: 'normal' },
-      { sprite: 'station', lives: -1, stars: 0, type: 'normal' },
-      { sprite: 'rounded_green', lives: -1, stars: 0, type: 'normal' },
-      { sprite: 'riot', lives: -1, stars: 0, type: 'normal' },
+      // Normal cars (-1 life, +1 star for wanted level)
+      { sprite: 'bus', lives: -1, stars: 1, type: 'normal' },
+      { sprite: 'taxi', lives: -1, stars: 1, type: 'normal' },
+      { sprite: 'sports_race', lives: -1, stars: 1, type: 'normal' },
+      { sprite: 'trucktank', lives: -1, stars: 1, type: 'normal' },
+      { sprite: 'vendor', lives: -1, stars: 1, type: 'normal' },
+      { sprite: 'sports_yellow', lives: -1, stars: 1, type: 'normal' },
+      { sprite: 'suv_closed', lives: -1, stars: 1, type: 'normal' },
+      { sprite: 'towtruck', lives: -1, stars: 1, type: 'normal' },
+      { sprite: 'vintage', lives: -1, stars: 1, type: 'normal' },
+      { sprite: 'station', lives: -1, stars: 1, type: 'normal' },
+      { sprite: 'rounded_green', lives: -1, stars: 1, type: 'normal' },
+      { sprite: 'riot', lives: -1, stars: 1, type: 'normal' },
       
-      // Trucks (-2 lives)
-      { sprite: 'truck', lives: -2, stars: 0, type: 'truck' },
-      { sprite: 'firetruck', lives: -2, stars: 0, type: 'truck' },
+      // Trucks (-2 lives, +1 star for wanted level)
+      { sprite: 'truck', lives: -2, stars: 1, type: 'truck' },
+      { sprite: 'firetruck', lives: -2, stars: 1, type: 'truck' },
       
-      // Ambulance (+1 life, no multiplier reset)
+      // Ambulance (+1 life, no multiplier reset, no stars)
       { sprite: 'ambulance', lives: 1, stars: 0, type: 'ambulance' },
       
       // Small vehicles (+1 star, no life loss)
@@ -1157,39 +1368,40 @@ export class MainScene extends Phaser.Scene {
     console.log(`🎲 Total vehicle types: ${vehicleTypes.length}`);
     console.log(`🎲 Ambulance types: ${vehicleTypes.filter(v => v.type === 'ambulance').length}`);
     console.log(`🎲 Small types: ${vehicleTypes.filter(v => v.type === 'small').length}`);
-    console.log(`🎲 Normal types: ${vehicleTypes.filter(v => v.type === 'normal').length}`);
+    console.log(`🎲 Normal types: ${vehicleTypes.filter(v => v.type === 'normal').length} (now give +1 star each!)`);
+    console.log(`🎲 Truck types: ${vehicleTypes.filter(v => v.type === 'truck').length} (now give +1 star each!)`);
     
     // Better random selection to ensure all types have a fair chance
     let vehicleType;
     const random = Math.random();
     
-    if (random < 0.15) {
-      // 15% chance for ambulance
+    if (random < 0.03) {
+      // 3% chance for ambulance (was 15% - much rarer now!)
       const ambulances = vehicleTypes.filter(v => v.type === 'ambulance');
       vehicleType = ambulances[0];
-      console.log(`🎲 🚑 Selected ambulance (15% chance)`);
-    } else if (random < 0.30) {
-      // 15% chance for small vehicles (cycles)
+      console.log(`🎲 🚑 Selected ambulance (3% chance)`);
+    } else if (random < 0.18) {
+      // 15% chance for small vehicles (cycles) - increased from 15% to 15% (no change)
       const smallVehicles = vehicleTypes.filter(v => v.type === 'small');
       vehicleType = Phaser.Utils.Array.GetRandom(smallVehicles);
       console.log(`🎲 🛵 Selected small vehicle (15% chance)`);
-    } else if (random < 0.40) {
-      // 10% chance for trucks
+    } else if (random < 0.28) {
+      // 10% chance for trucks - increased from 10% to 10% (no change)
       const trucks = vehicleTypes.filter(v => v.type === 'truck');
       vehicleType = Phaser.Utils.Array.GetRandom(trucks);
       console.log(`🎲 🚛 Selected truck (10% chance)`);
     } else {
-      // 60% chance for normal cars
+      // 72% chance for normal cars - increased from 60% to 72%
       const normalCars = vehicleTypes.filter(v => v.type === 'normal');
       vehicleType = Phaser.Utils.Array.GetRandom(normalCars);
-      console.log(`🎲 🚗 Selected normal car (60% chance)`);
+      console.log(`🎲 🚗 Selected normal car (72% chance)`);
     }
+    
+    console.log('🚗 About to create vehicle with type:', vehicleType);
     
     const vehicle = this.enemies.create(this.cameras.main.width + 50, y, vehicleType.sprite);
     
-    // Debug: Show the exact vehicle type that was selected
-    console.log(`🎲 Random vehicle type selected:`, vehicleType);
-    console.log(`🎲 Sprite: ${vehicleType.sprite}, Type: ${vehicleType.type}, Lives: ${vehicleType.lives}, Stars: ${vehicleType.stars}`);
+    console.log('🚗 Vehicle created:', vehicle);
     
     // Check if sprite was created successfully
     if (!vehicle) {
@@ -1197,7 +1409,9 @@ export class MainScene extends Phaser.Scene {
       return;
     }
     
-    vehicle.setScale(3); // Bigger cars - 3x scale instead of 4x
+    console.log('🚗 Vehicle created successfully, setting properties...');
+    
+    vehicle.setScale(3.9); // 30% bigger than 3x (was 3)
     vehicle.speed = Phaser.Math.Between(200, 350);
     
     // Create a NEW object for each vehicle to avoid reference issues
@@ -1269,6 +1483,8 @@ export class MainScene extends Phaser.Scene {
     }
     
     console.log(`🚗 Vehicle spawned: ${vehicleType.sprite} at (${vehicle.x}, ${vehicle.y}), type: ${vehicleType.type}, lives: ${vehicleType.lives}, stars: ${vehicleType.stars}`);
+    console.log(`🚗 Vehicle final properties - visible: ${vehicle.visible}, depth: ${vehicle.depth}, alpha: ${vehicle.alpha}`);
+    console.log(`🚗 Enemies group size after spawn: ${this.enemies.children.size}`);
   }
   
   // Spawn police car
@@ -1278,12 +1494,155 @@ export class MainScene extends Phaser.Scene {
       return;
     }
     
-    // Police spawn rate increases with wanted level
-    const spawnChance = Math.min(0.3 + (this.stars * 0.2), 0.9);
+    // Check if we're in a burst cooldown or if a burst is already active
+    if (this.isPoliceBurstActive || this.time.now < this.policeBurstCooldown) {
+      return; // Don't spawn if burst is active or cooldown hasn't expired
+    }
+    
+    // Police spawn rate increases with wanted level (MUCH HIGHER now!)
+    const spawnChance = Math.min(0.8 + (this.stars * 0.15), 0.95); // Increased from 0.6 to 0.8 base, 0.25 to 0.15 per star
     if (Math.random() > spawnChance) {
       return; // Don't spawn this time
     }
     
+    // Dynamic police spawning based on stars
+    this.spawnPoliceBurst();
+  }
+  
+  // Spawn multiple police cars in a burst based on wanted level
+  spawnPoliceBurst() {
+    // Allow some police to spawn even with 0 stars for better gameplay
+    if (this.stars === 0) {
+      // 20% chance to spawn 1 cop even with 0 stars
+      if (Math.random() < 0.2) {
+        this.spawnSinglePolice();
+        console.log('🚔 Spawned rare police with 0 stars');
+      }
+      return;
+    }
+    
+    // Mark that a burst is starting
+    this.isPoliceBurstActive = true;
+    
+    let copCount = 1;
+    let burstTiming = [];
+    let burstDuration = 0;
+    
+    // Determine how many cops to spawn based on stars (BALANCED approach)
+    switch (this.stars) {
+      case 1:
+        // 1 star: Mostly single cops, rare doubles
+        if (Math.random() < 0.85) { // 85% chance for 1 cop
+          copCount = 1;
+          burstTiming = [0];
+          burstDuration = 1000;
+        } else { // 15% chance for 2 cops
+          copCount = 2;
+          burstTiming = [0, 1000];
+          burstDuration = 2000;
+        }
+        break;
+        
+      case 2:
+        // 2 stars: Mix of 1-2 cops
+        if (Math.random() < 0.7) { // 70% chance for 1 cop
+          copCount = 1;
+          burstTiming = [0];
+          burstDuration = 1200;
+        } else { // 30% chance for 2 cops
+          copCount = 2;
+          burstTiming = [0, 800];
+          burstDuration = 1800;
+        }
+        break;
+        
+      case 3:
+        // 3 stars: Mix of 1-3 cops
+        const rand3 = Math.random();
+        if (rand3 < 0.6) { // 60% chance for 1 cop
+          copCount = 1;
+          burstTiming = [0];
+          burstDuration = 1500;
+        } else if (rand3 < 0.85) { // 25% chance for 2 cops
+          copCount = 2;
+          burstTiming = [0, 700];
+          burstDuration = 2000;
+        } else { // 15% chance for 3 cops
+          copCount = 3;
+          burstTiming = [0, 500, 1000];
+          burstDuration = 2500;
+        }
+        break;
+        
+      case 4:
+        // 4 stars: More variety, but controlled
+        const rand4 = Math.random();
+        if (rand4 < 0.5) { // 50% chance for 2 cops
+          copCount = 2;
+          burstTiming = [0, 600];
+          burstDuration = 2000;
+        } else if (rand4 < 0.75) { // 25% chance for 1 cop
+          copCount = 1;
+          burstTiming = [0];
+          burstDuration = 1500;
+        } else if (rand4 < 0.9) { // 15% chance for 3 cops
+          copCount = 3;
+          burstTiming = [0, 400, 800];
+          burstDuration = 2500;
+        } else { // 10% chance for 4 cops
+          copCount = 4;
+          burstTiming = [0, 300, 600, 900];
+          burstDuration = 3000;
+        }
+        break;
+        
+      case 5:
+        // 5 stars: Maximum variety, but still controlled
+        const rand5 = Math.random();
+        if (rand5 < 0.4) { // 40% chance for 2 cops
+          copCount = 2;
+          burstTiming = [0, 500];
+          burstDuration = 2000;
+        } else if (rand5 < 0.65) { // 25% chance for 3 cops
+          copCount = 3;
+          burstTiming = [0, 400, 800];
+          burstDuration = 2500;
+        } else if (rand5 < 0.8) { // 15% chance for 1 cop
+          copCount = 1;
+          burstTiming = [0];
+          burstDuration = 1500;
+        } else if (rand5 < 0.9) { // 10% chance for 4 cops
+          copCount = 4;
+          burstTiming = [0, 300, 600, 900];
+          burstDuration = 3000;
+        } else { // 10% chance for 5 cops (rare but exciting!)
+          copCount = 5;
+          burstTiming = [0, 250, 500, 750, 1000];
+          burstDuration = 3500;
+        }
+        break;
+    }
+    
+    console.log(`🚔 Spawning police burst: ${copCount} cops with ${this.stars} stars, duration: ${burstDuration}ms`);
+    
+    // Spawn cops with staggered timing
+    for (let i = 0; i < copCount; i++) {
+      this.time.delayedCall(burstTiming[i], () => {
+        this.spawnSinglePolice();
+      });
+    }
+    
+    // Set cooldown after burst completes
+    this.time.delayedCall(burstDuration, () => {
+      this.isPoliceBurstActive = false;
+      // Set cooldown before next burst can start
+      this.policeBurstCooldown = this.time.now + this.getBurstCooldown();
+      console.log(`🚔 Police burst completed, cooldown set for ${this.getBurstCooldown()}ms`);
+    });
+  }
+  
+  // Spawn a single police car
+  spawnSinglePolice() {
     const roadTop = this.cameras.main.height * 0.2;
     const roadBottom = this.cameras.main.height * 0.9;
     const y = Phaser.Math.Between(roadTop + 50, roadBottom - 50);
@@ -1296,10 +1655,13 @@ export class MainScene extends Phaser.Scene {
       return;
     }
     
-    police.setScale(3); // Bigger police cars - 3x scale
+    police.setScale(3.9); // 30% bigger than 3x (was 3)
     police.speed = Phaser.Math.Between(250, 400);
     police.vehicleType = { sprite: 'police', lives: 'arrest', stars: 0, type: 'police' };
     police.body.setSize(police.width * 0.8, police.height * 0.8);
+    
+    // Keep police car normal - no glow effects
+    console.log(`🚔 Police car created successfully`);
     
     // Make sure police is visible and at correct depth
     police.setVisible(true);
@@ -1315,64 +1677,116 @@ export class MainScene extends Phaser.Scene {
     console.log(`🚔 Police spawned at (${police.x}, ${police.y}), visible: ${police.visible}, depth: ${police.depth}`);
   }
   
-  // Handle player movement
-  handlePlayerMovement(delta) {
-    // Check if player exists
-    if (!this.player) {
-      return;
-    }
+  // Handle player movement with momentum and weight
+  handlePlayerMovement() {
+    if (!this.player || !this.player.body) return;
     
-    // Get delta time for frame-rate independent movement
-    const deltaTime = delta || this.game.loop.delta / 1000; // Convert to seconds
+    const cursors = this.input.keyboard.createCursorKeys();
+    const spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     
-    // Handle keyboard input
-    let moveLeft = this.cursors.left.isDown;
-    let moveRight = this.cursors.right.isDown;
-    let moveUp = this.cursors.up.isDown;
-    let moveDown = this.cursors.down.isDown;
+    // Get current velocity
+    const currentVelX = this.player.body.velocity.x;
+    const currentVelY = this.player.body.velocity.y;
     
-    // Handle mobile touch controls if on mobile
-    if (this.isMobile && this.mobileInput) {
-      moveLeft = moveLeft || this.mobileInput.left;
-      moveRight = moveRight || this.mobileInput.right;
-      moveUp = moveUp || this.mobileInput.up;
-      moveDown = moveDown || this.mobileInput.down;
-    }
+    // Movement speed based on car stats
+    const maxSpeed = this.carStats.maxSpeed;
+    const acceleration = this.carStats.acceleration;
+    const deceleration = this.carStats.deceleration;
     
-    // Apply handling multiplier to acceleration and deceleration
-    const effectiveAcceleration = this.acceleration * this.carStats.handling;
-    const effectiveDeceleration = this.deceleration * this.carStats.handling;
+    // Get car-specific momentum based on selected vehicle
+    const momentumFactor = this.getCarMomentumFactor();
     
-    // Apply acceleration/deceleration for X axis
-    if (moveLeft) {
-      this.playerVelocity.x = Math.max(-this.maxSpeed, this.playerVelocity.x - effectiveAcceleration * deltaTime);
-    } else if (moveRight) {
-      this.playerVelocity.x = Math.min(this.maxSpeed, this.playerVelocity.x + effectiveAcceleration * deltaTime);
+    // Horizontal movement with momentum
+    if (cursors.left.isDown) {
+      this.player.body.setVelocityX(-maxSpeed);
+    } else if (cursors.right.isDown) {
+      this.player.body.setVelocityX(maxSpeed);
     } else {
-      // Decelerate towards zero
-      if (this.playerVelocity.x > 0) {
-        this.playerVelocity.x = Math.max(0, this.playerVelocity.x - effectiveDeceleration * deltaTime);
-      } else if (this.playerVelocity.x < 0) {
-        this.playerVelocity.x = Math.min(0, this.playerVelocity.x + effectiveDeceleration * deltaTime);
+      // Apply momentum/deceleration when no key is pressed
+      if (Math.abs(currentVelX) > 0) {
+        // Gradually slow down (momentum effect) - CAR-SPECIFIC!
+        const newVelX = currentVelX * momentumFactor;
+        this.player.body.setVelocityX(newVelX);
+        
+        // Stop completely if velocity is very small
+        if (Math.abs(newVelX) < 10) {
+          this.player.body.setVelocityX(0);
+        }
       }
     }
     
-    // Apply acceleration/deceleration for Y axis
-    if (moveUp) {
-      this.playerVelocity.y = Math.max(-this.maxSpeed, this.playerVelocity.y - effectiveAcceleration * deltaTime);
-    } else if (moveDown) {
-      this.playerVelocity.y = Math.min(this.maxSpeed, this.playerVelocity.y + effectiveAcceleration * deltaTime);
+    // Vertical movement with momentum
+    if (cursors.up.isDown) {
+      this.player.body.setVelocityY(-maxSpeed);
+    } else if (cursors.down.isDown) {
+      this.player.body.setVelocityY(maxSpeed);
     } else {
-      // Decelerate towards zero
-      if (this.playerVelocity.y > 0) {
-        this.playerVelocity.y = Math.max(0, this.playerVelocity.y - effectiveDeceleration * deltaTime);
-      } else if (this.playerVelocity.y < 0) {
-        this.playerVelocity.y = Math.min(0, this.playerVelocity.y + effectiveDeceleration * deltaTime);
+      // Apply momentum/deceleration when no key is pressed
+      if (Math.abs(currentVelY) > 0) {
+        // Gradually slow down (momentum effect) - CAR-SPECIFIC!
+        const newVelY = currentVelY * momentumFactor;
+        this.player.body.setVelocityY(newVelY);
+        
+        // Stop completely if velocity is very small
+        if (Math.abs(newVelY) < 10) {
+          this.player.body.setVelocityY(0);
+        }
       }
     }
     
-    // Apply velocity to player
-    this.player.setVelocity(this.playerVelocity.x, this.playerVelocity.y);
+    // Braking with space key (stronger deceleration)
+    if (spaceKey.isDown) {
+      this.player.body.setVelocityX(currentVelX * 0.6); // 40% reduction per frame
+      this.player.body.setVelocityY(currentVelY * 0.6);
+      
+      // Create tire smoke effect when braking
+      if (this.particles && (Math.abs(currentVelX) > 50 || Math.abs(currentVelY) > 50)) {
+        this.createTireSmokeEffect(this.player.x, this.player.y);
+      }
+    }
+    
+    // Keep player within bounds
+    this.keepPlayerInBounds();
+  }
+  
+  // Get car-specific momentum factor based on selected vehicle
+  getCarMomentumFactor() {
+    // Get the current player sprite name to determine car type
+    const playerSprite = this.player.texture.key;
+    
+    let momentumFactor;
+    let carDescription;
+    
+    switch (playerSprite) {
+      case 'van':
+        momentumFactor = 0.92; // Maximum drift - heaviest vehicle (8% reduction)
+        carDescription = 'Van (Heavy)';
+        break;
+      case 'sports_convertible':
+        momentumFactor = 0.75; // Light drift - sports car (25% reduction)
+        carDescription = 'Sports Convertible (Light)';
+        break;
+      case 'vintage':
+        momentumFactor = 0.82; // Medium drift - classic car (18% reduction)
+        carDescription = 'Vintage (Medium)';
+        break;
+      case 'sedan_vintage':
+        momentumFactor = 0.80; // Medium drift - old sedan (20% reduction)
+        carDescription = 'Sedan Vintage (Medium)';
+        break;
+      case 'formula':
+        momentumFactor = 0.65; // Minimal drift - racing precision (35% reduction)
+        carDescription = 'Formula (Precision)';
+        break;
+      default:
+        momentumFactor = 0.85; // Default momentum (15% reduction)
+        carDescription = 'Unknown (Default)';
+    }
+    
+    // Log the momentum factor being applied
+    console.log(`🚗 ${carDescription} - Momentum Factor: ${momentumFactor} (${((1 - momentumFactor) * 100).toFixed(0)}% reduction per frame)`);
+    
+    return momentumFactor;
   }
   
   // Move game objects (enemies, collectibles, obstacles)
@@ -1418,25 +1832,74 @@ export class MainScene extends Phaser.Scene {
     });
   }
   
-  // Handle collecting blood slides
+  // Handle collecting items (new floating items system)
   collectItem(player, collectible) {
-    console.log(`🩸 COLLISION DETECTED with collectible at (${collectible.x}, ${collectible.y})`);
+    if (!collectible.collectibleData) {
+      console.warn('🎲 Collectible missing data, using fallback behavior');
+      // Fallback: treat as old blood slide
+      this.score += 1;
+      if (this.scoreText) this.scoreText.setText(`SCORE: ${this.score.toString().padStart(6, '0')}`);
+      collectible.destroy();
+      return;
+    }
+    
+    const data = collectible.collectibleData;
+    console.log(`🎲 COLLECTED: ${data.name} - Effect: ${data.description}`);
     
     // Play collection sound
     if (this.sound.get('collect')) {
       this.sound.play('collect', { volume: 0.3 });
     }
     
-    // Add to score with multiplier
-    this.score += 1 * this.multiplier;
-    
-    // Update UI text
-    if (this.scoreText) this.scoreText.setText(`SCORE: ${this.score.toString().padStart(6, '0')}`);
+    // Handle different collectible effects
+    switch (data.effect) {
+      case 'life':
+        // 🩸 Gooner Blood: +1 life
+        this.lives = Math.min(this.lives + data.value, 10); // Cap at 10 lives
+        this.showFloatingText(`${data.name}: ${data.description}`, collectible.x, collectible.y, data.color);
+        this.createCollectibleSparkle(collectible.x, collectible.y, data.color); // Add sparkle effect
+        if (this.livesText) this.livesText.setText(`LIVES: ${this.lives}`);
+        console.log(`🩸 ${data.name} collected! Lives: ${this.lives}`);
+        break;
+        
+      case 'star':
+        // 💧 Water: -1 star (hydrating from gooning)
+        this.stars = Math.max(this.stars + data.value, 0); // Can't go below 0 stars
+        this.showFloatingText(`${data.name}: ${data.description}`, collectible.x, collectible.y, data.color);
+        this.createCollectibleSparkle(collectible.x, collectible.y, data.color); // Add sparkle effect
+        if (this.starsText) this.starsText.setText(`WANTED: ${'★'.repeat(this.stars) + '☆'.repeat(5 - this.stars)}`);
+        console.log(`💧 ${data.name} collected! Stars: ${this.stars}`);
+        // Update police spawn rate and star multiplier when stars decrease
+        this.updatePoliceSpawnRate();
+        this.calculateStarMultiplier();
+        break;
+        
+      case 'points':
+        if (data.value > 0) {
+          // �� Golden Shower / 🟣 Goon Liquid: +points
+          const points = data.value * this.multiplier * this.starMultiplier;
+          this.score += points;
+          this.showFloatingText(`${data.name}: +${points} POINTS`, collectible.x, collectible.y, data.color);
+          this.createCollectibleSparkle(collectible.x, collectible.y, data.color); // Add sparkle effect
+          if (this.scoreText) this.scoreText.setText(`SCORE: ${this.score.toString().padStart(6, '0')}`);
+          console.log(`🎯 ${data.name} collected! Points: +${points}, Score: ${this.score}`);
+        } else {
+          // 💩 Poop / 🤮 Puke: -points
+          this.score = Math.max(this.score + data.value, 0); // Can't go below 0
+          this.showFloatingText(`${data.name}: ${data.value} POINTS`, collectible.x, collectible.y, data.color);
+          this.createCollectibleSparkle(collectible.x, collectible.y, data.color); // Add sparkle effect
+          if (this.scoreText) this.scoreText.setText(`SCORE: ${this.score.toString().padStart(6, '0')}`);
+          console.log(`💩 ${data.name} collected! Points: ${data.value}, Score: ${this.score}`);
+        }
+        break;
+        
+      default:
+        console.warn(`🎲 Unknown collectible effect: ${data.effect}`);
+        break;
+    }
     
     // Remove the collectible
     collectible.destroy();
-    
-    console.log(`🩸 Blood slide collected! Score: ${this.score}, Multiplier: x${this.multiplier}`);
   }
   
   // Handle hitting vehicles
@@ -1466,26 +1929,39 @@ export class MainScene extends Phaser.Scene {
         this.showFloatingText('+1 STAR', vehicle.x, vehicle.y, '#ffff00');
         if (this.starsText) this.starsText.setText(`WANTED: ${'★'.repeat(this.stars) + '☆'.repeat(5 - this.stars)}`);
         console.log(`🛵 Small vehicle hit! Stars: ${this.stars}`);
+        // Update police spawn rate and star multiplier when stars increase
+        this.updatePoliceSpawnRate();
+        this.calculateStarMultiplier();
         break;
         
       case 'truck':
-        // -2 lives, reset multiplier
+        // -2 lives, +1 star, reset multiplier
         this.lives -= 2;
+        this.stars = Math.min(this.stars + 1, 5); // Add wanted star
         this.multiplier = 1;
-        this.showFloatingText('-2 LIVES', vehicle.x, vehicle.y, '#ff0000');
+        this.showFloatingText('-2 LIVES +1 STAR', vehicle.x, vehicle.y, '#ff0000');
         if (this.livesText) this.livesText.setText(`LIVES: ${this.lives}`);
+        if (this.starsText) this.starsText.setText(`WANTED: ${'★'.repeat(this.stars) + '☆'.repeat(5 - this.stars)}`);
         if (this.multiplierText) this.multiplierText.setText(`COMBO: x${this.multiplier}`);
-        console.log(`🚛 Truck hit! Lives: ${this.lives}`);
+        console.log(`🚛 Truck hit! Lives: ${this.lives}, Stars: ${this.stars}`);
+        // Update police spawn rate and star multiplier when stars increase
+        this.updatePoliceSpawnRate();
+        this.calculateStarMultiplier();
         break;
         
       default:
-        // Normal cars: -1 life, reset multiplier
+        // Normal cars: -1 life, +1 star, reset multiplier
         this.lives -= 1;
+        this.stars = Math.min(this.stars + 1, 5); // Add wanted star
         this.multiplier = 1;
-        this.showFloatingText('-1 LIFE', vehicle.x, vehicle.y, '#ff0000');
+        this.showFloatingText('-1 LIFE +1 STAR', vehicle.x, vehicle.y, '#ff0000');
         if (this.livesText) this.livesText.setText(`LIVES: ${this.lives}`);
+        if (this.starsText) this.starsText.setText(`WANTED: ${'★'.repeat(this.stars) + '☆'.repeat(5 - this.stars)}`);
         if (this.multiplierText) this.multiplierText.setText(`COMBO: x${this.multiplier}`);
-        console.log(`🚗 Car hit! Lives: ${this.lives}`);
+        console.log(`🚗 Car hit! Lives: ${this.lives}, Stars: ${this.stars}`);
+        // Update police spawn rate and star multiplier when stars increase
+        this.updatePoliceSpawnRate();
+        this.calculateStarMultiplier();
         break;
     }
     
@@ -1493,6 +1969,9 @@ export class MainScene extends Phaser.Scene {
     if (this.sound.get('crash')) {
       this.sound.play('crash', { volume: 0.4 });
     }
+    
+    // Create explosion particle effect
+    this.createExplosionEffect(vehicle.x, vehicle.y);
     
     // Remove the vehicle
     vehicle.destroy();
@@ -1554,7 +2033,11 @@ export class MainScene extends Phaser.Scene {
     // Save high score and go to game over scene
     this.scene.start('GameOverScene', {
       score: this.score,
-      reason: reason
+      musicState: this.getMusicState(),
+      carInfo: {
+        sprite: this.player.texture.key,
+        name: this.getCarDisplayName(this.player.texture.key)
+      }
     });
   }
   
@@ -1606,9 +2089,12 @@ export class MainScene extends Phaser.Scene {
     this.policeCars.getChildren().forEach((police, index) => {
       // Police chase player if player has 1+ stars (changed from 2+)
       if (this.stars >= 1) {
-        // Calculate chase speed based on stars (slower at 1 star, faster with more stars)
-        const baseSpeed = this.stars === 1 ? 30 : 50; // Slower at 1 star
-        const chaseSpeed = Math.min(baseSpeed + (this.stars * 30), 250);
+        // Calculate chase speed based on stars - faster with more stars but never as fast as player
+        const baseSpeed = 40; // Base police speed
+        const starMultiplier = 1 + (this.stars * 0.3); // 30% faster per star
+        const maxSpeed = Math.min(this.carStats.maxSpeed * 0.7, 200); // Never faster than 70% of player speed
+        
+        const chaseSpeed = Math.min(baseSpeed * starMultiplier, maxSpeed);
         
         // Move towards player vertically
         const playerY = this.player.y;
@@ -1622,6 +2108,11 @@ export class MainScene extends Phaser.Scene {
           }
         } else {
           police.setVelocityY(0);
+        }
+        
+        // Log police speed for debugging
+        if (index === 0) { // Only log first police car to avoid spam
+          console.log(`🚔 Police AI: ${this.stars} stars, speed: ${chaseSpeed.toFixed(1)}, max: ${maxSpeed}`);
         }
       } else {
         // No stars - police just move straight
@@ -1713,7 +2204,11 @@ export class MainScene extends Phaser.Scene {
     // Pass the final score and music state to GameOverScene
     this.scene.start('GameOverScene', { 
       score: this.score, 
-      musicState: musicState 
+      musicState: musicState,
+      carInfo: {
+        sprite: this.player.texture.key,
+        name: this.getCarDisplayName(this.player.texture.key)
+      }
     });
   }
   
@@ -1745,9 +2240,12 @@ export class MainScene extends Phaser.Scene {
     
     this.stars = 0;
     this.multiplier = 1;
+    this.starMultiplier = 1;
     
     this.policeCars = [];
-    this.policeSpawnRate = 3000;
+    this.policeSpawnRate = 1000; // Much faster initial spawn rate (was 3000)
+    this.policeBurstCooldown = 0; // Cooldown between police bursts
+    this.isPoliceBurstActive = false; // Track if a burst is currently spawning
     
     this.playlist = [
       { key: 'theme', name: 'Double Life Gooner' },
@@ -1876,7 +2374,7 @@ export class MainScene extends Phaser.Scene {
       }
       
       // Set player properties
-      this.player.setScale(3); // Bigger player car - 3x scale to match enemies
+      this.player.setScale(3.9); // 30% bigger than 3x (was 3)
       this.player.setCollideWorldBounds(true);
       this.player.setDrag(this.carStats.handling * 100); // Apply handling as drag
       this.player.setMaxVelocity(this.carStats.maxSpeed);
@@ -1889,6 +2387,7 @@ export class MainScene extends Phaser.Scene {
       // Set collision body size
       this.player.body.setSize(this.player.width * 0.8, this.player.height * 0.8);
       
+      // Keep player car normal - no glow effects
       console.log(`🚗 Player created successfully with sprite: ${carSprite} at (${this.player.x}, ${this.player.y})`);
       
     } catch (error) {
@@ -1991,60 +2490,21 @@ export class MainScene extends Phaser.Scene {
               this.player.x, this.player.y,
               enemy.x, enemy.y
             );
-            console.log(`🧪 Distance to ${enemy.texture?.key}: ${distance.toFixed(1)}`);
+            console.log(`🧪 Distance to enemy: ${distance.toFixed(1)}`);
             
-            // If very close, test collision manually
-            if (distance < 50) {
-              console.log(`🧪 MANUAL COLLISION TEST with ${enemy.texture?.key}`);
-              this.hitVehicle(this.player, enemy);
+            if (distance < 100) {
+              console.log(`🧪 Moving player close to enemy to test collision...`);
+              this.player.x = enemy.x + 30;
+              this.player.y = enemy.y;
             }
           }
         });
       });
       
-      // Add manual collision test button for debugging
-      const testBtn = this.add.text(60, 40, '🧪 TEST', {
-        font: 'bold 16px Arial',
-        fill: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 2,
-        backgroundColor: '#7c3aed',
-        padding: { x: 8, y: 4 }
-      }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(20);
+      // NOW start spawning after collisions are set up
+      console.log('🎮 Starting spawning system...');
+      this.startSpawning();
       
-      testBtn.on('pointerdown', () => {
-        console.log('🧪 Manual collision test triggered!');
-        if (this.player && this.enemies) {
-          const enemies = this.enemies.getChildren();
-          if (enemies.length > 0) {
-            // Find the nearest enemy
-            let nearestEnemy = null;
-            let nearestDistance = Infinity;
-            
-            enemies.forEach((enemy, index) => {
-              if (enemy.active) {
-                const distance = Phaser.Math.Distance.Between(
-                  this.player.x, this.player.y,
-                  enemy.x, enemy.y
-                );
-                if (distance < nearestDistance) {
-                  nearestDistance = distance;
-                  nearestEnemy = enemy;
-                }
-                console.log(`🧪 Enemy ${index}: ${enemy.texture?.key}, vehicleType:`, enemy.vehicleType, `distance: ${distance.toFixed(1)}`);
-              }
-            });
-            
-            if (nearestEnemy) {
-              console.log(`🧪 Testing collision with nearest enemy: ${nearestEnemy.texture?.key} at distance ${nearestDistance.toFixed(1)}`);
-              // Force collision test
-              this.hitVehicle(this.player, nearestEnemy);
-            }
-          }
-        }
-      });
-      
-      console.log('🎮 Collisions set up successfully');
     } else {
       console.error('🎮 Cannot set up collisions - missing objects:', {
         player: !!this.player,
@@ -2053,16 +2513,373 @@ export class MainScene extends Phaser.Scene {
         obstacles: !!this.obstacles
       });
     }
-    
-    if (this.enemies && this.collectibles && this.obstacles) {
-      this.startSpawning();
-      console.log('🎮 Started spawning game objects');
-    } else {
-      console.error('🎮 Cannot start spawning - groups not initialized:', {
-        enemies: !!this.enemies,
-        collectibles: !!this.collectibles,
-        obstacles: !!this.obstacles
-      });
+  }
+  
+  // Get car display name from sprite key
+  getCarDisplayName(spriteKey) {
+    const carNames = {
+      'van': 'Van',
+      'sports_convertible': 'Sports Convertible',
+      'vintage': 'Vintage',
+      'sedan_vintage': 'Sedan Vintage',
+      'formula': 'Formula'
+    };
+    return carNames[spriteKey] || spriteKey;
+  }
+  
+  // Get car glow color based on car type
+  getCarGlowColor(carSprite) {
+    switch (carSprite) {
+      case 'van':
+        return 0x666666; // Subtle gray glow
+      case 'sports_convertible':
+        return 0xff6600; // Orange sports glow
+      case 'vintage':
+        return 0x8B4513; // Brown vintage glow
+      case 'sedan_vintage':
+        return 0x4169E1; // Blue sedan glow
+      case 'formula':
+        return 0xff0000; // Bright red racing glow
+      default:
+        return 0xffffff; // Subtle white glow
     }
   }
-} 
+  
+  // Calculate burst cooldown based on stars
+  getBurstCooldown() {
+    switch (this.stars) {
+      case 0:
+        return 0; // No cooldown needed
+      case 1:
+        return Phaser.Math.Between(800, 1500); // 0.8-1.5 seconds (was 2.5-4)
+      case 2:
+        return Phaser.Math.Between(600, 1200); // 0.6-1.2 seconds (was 2-3)
+      case 3:
+        return Phaser.Math.Between(400, 1000); // 0.4-1.0 seconds (was 1.5-2.5)
+      case 4:
+        return Phaser.Math.Between(300, 800); // 0.3-0.8 seconds (was 1-2)
+      case 5:
+        return Phaser.Math.Between(200, 600); // 0.2-0.6 seconds (was 0.8-1.5)
+      default:
+        return 800; // Default much shorter cooldown
+    }
+  }
+  
+  // Update police spawn rate based on wanted level
+  updatePoliceSpawnRate() {
+    if (!this.policeTimer) return;
+    
+    let newDelay;
+    switch (this.stars) {
+      case 0:
+        newDelay = Phaser.Math.Between(3000, 5000); // 3-5 seconds (was 8-12)
+        break;
+      case 1:
+        newDelay = Phaser.Math.Between(1500, 2500); // 1.5-2.5 seconds (was 4-6)
+        break;
+      case 2:
+        newDelay = Phaser.Math.Between(1000, 2000); // 1-2 seconds (was 3-4)
+        break;
+      case 3:
+        newDelay = Phaser.Math.Between(800, 1500); // 0.8-1.5 seconds (was 2-3)
+        break;
+      case 4:
+        newDelay = Phaser.Math.Between(600, 1200); // 0.6-1.2 seconds (was 1.5-2.5)
+        break;
+      case 5:
+        newDelay = Phaser.Math.Between(400, 800); // 0.4-0.8 seconds (was 1-2)
+        break;
+      default:
+        newDelay = 2000;
+    }
+    
+    this.policeTimer.delay = newDelay;
+    this.policeTimer.reset({ delay: newDelay, callback: this.spawnPolice, callbackScope: this, loop: true });
+    console.log(`🚔 Police spawn rate updated: ${this.stars} stars = ${newDelay}ms delay`);
+  }
+  
+  // Calculate star-based multiplier
+  calculateStarMultiplier() {
+    switch (this.stars) {
+      case 0:
+        this.starMultiplier = 1;
+        break;
+      case 1:
+        this.starMultiplier = 1;
+        break;
+      case 2:
+        this.starMultiplier = 1.5;
+        break;
+      case 3:
+        this.starMultiplier = 2;
+        break;
+      case 4:
+        this.starMultiplier = 3;
+        break;
+      case 5:
+        this.starMultiplier = 5;
+        break;
+      default:
+        this.starMultiplier = 1;
+    }
+    
+    // Update UI display
+    if (this.starMultiplierText) {
+      this.starMultiplierText.setText(`STAR: x${this.starMultiplier}`);
+    }
+    
+    console.log(`⭐ Star multiplier updated: ${this.stars} stars = ${this.starMultiplier}x`);
+    return this.starMultiplier;
+  }
+  
+  // Keep player within game boundaries
+  keepPlayerInBounds() {
+    if (!this.player || !this.player.body) return;
+    
+    const playerX = this.player.x;
+    const playerY = this.player.y;
+    const playerWidth = this.player.width * this.player.scaleX;
+    const playerHeight = this.player.height * this.player.scaleY;
+    
+    // Calculate boundaries (accounting for player size)
+    const minX = playerWidth / 2;
+    const maxX = this.cameras.main.width - playerWidth / 2;
+    const minY = playerHeight / 2;
+    const maxY = this.cameras.main.height - playerHeight / 2;
+    
+    // Clamp position to boundaries
+    const clampedX = Phaser.Math.Clamp(playerX, minX, maxX);
+    const clampedY = Phaser.Math.Clamp(playerY, minY, maxY);
+    
+    // Update position if needed
+    if (clampedX !== playerX || clampedY !== playerY) {
+      this.player.setPosition(clampedX, clampedY);
+      
+      // Stop velocity in the direction that was clamped
+      if (clampedX !== playerX) {
+        this.player.body.setVelocityX(0);
+      }
+      if (clampedY !== playerY) {
+        this.player.body.setVelocityY(0);
+      }
+    }
+  }
+  
+  // Create explosion particle effect
+  createExplosionEffect(x, y) {
+    if (!this.particles) {
+      console.log('⚠️ Particles system not available');
+      return;
+    }
+    
+    try {
+      console.log(`💥 Creating explosion at (${x}, ${y})`);
+      
+      // Create explosion particles
+      const explosion = this.particles.createEmitter({
+        x: x,
+        y: y,
+        speed: { min: 50, max: 200 },
+        scale: { start: 0.8, end: 0 },
+        alpha: { start: 1, end: 0 },
+        lifespan: 1000,
+        quantity: 20,
+        blendMode: 'ADD',
+        tint: [0xff0000, 0xff6600, 0xffff00, 0xffffff] // Red, orange, yellow, white
+      });
+      
+      // Create smoke particles
+      const smoke = this.particles.createEmitter({
+        x: x,
+        y: y,
+        speed: { min: 30, max: 100 },
+        scale: { start: 1.0, end: 0 },
+        alpha: { start: 0.8, end: 0 },
+        lifespan: 1500,
+        quantity: 12,
+        blendMode: 'MULTIPLY',
+        tint: [0x666666, 0x888888, 0xaaaaaa] // Gray smoke
+      });
+      
+      // Create spark particles
+      const sparks = this.particles.createEmitter({
+        x: x,
+        y: y,
+        speed: { min: 100, max: 300 },
+        scale: { start: 0.5, end: 0 },
+        alpha: { start: 1, end: 0 },
+        lifespan: 800,
+        quantity: 15,
+        blendMode: 'ADD',
+        tint: [0xffff00, 0xffff88, 0xffffff] // Yellow sparks
+      });
+      
+      console.log(`💥 Explosion emitters created:`, { explosion: !!explosion, smoke: !!smoke, sparks: !!sparks });
+      
+      // Auto-destroy emitters after they finish
+      this.time.delayedCall(1500, () => {
+        if (explosion) explosion.destroy();
+        if (smoke) smoke.destroy();
+        if (sparks) sparks.destroy();
+        console.log('💥 Explosion emitters destroyed');
+      });
+      
+      console.log(`💥 Explosion effect created successfully at (${x}, ${y})`);
+    } catch (error) {
+      console.log(`⚠️ Error creating explosion effect:`, error);
+      console.error('Full error:', error);
+    }
+  }
+  
+  // Create tire smoke effect when braking
+  createTireSmokeEffect(x, y) {
+    if (!this.particles) {
+      console.log('⚠️ Particles system not available for tire smoke');
+      return;
+    }
+    
+    try {
+      console.log(`💨 Creating tire smoke at (${x}, ${y})`);
+      
+      const smoke = this.particles.createEmitter({
+        x: x,
+        y: y,
+        speed: { min: 20, max: 80 },
+        scale: { start: 0.8, end: 0 },
+        alpha: { start: 0.6, end: 0 },
+        lifespan: 1200,
+        quantity: 8,
+        blendMode: 'MULTIPLY',
+        tint: [0x444444, 0x666666, 0x888888], // Dark smoke
+        frequency: 100 // Emit every 100ms
+      });
+      
+      console.log(`💨 Tire smoke emitter created:`, !!smoke);
+      
+      // Auto-destroy after 2 seconds
+      this.time.delayedCall(2000, () => {
+        if (smoke) smoke.destroy();
+        console.log('💨 Tire smoke emitter destroyed');
+      });
+    } catch (error) {
+      console.log(`⚠️ Error creating tire smoke effect:`, error);
+    }
+  }
+  
+  // Create collectible sparkle effect
+  createCollectibleSparkle(x, y, color) {
+    if (!this.particles) {
+      console.log('⚠️ Particles system not available for sparkles');
+      return;
+    }
+    
+    try {
+      console.log(`✨ Creating sparkle effect at (${x}, ${y}) with color: ${color.toString(16)}`);
+      
+      const sparkles = this.particles.createEmitter({
+        x: x,
+        y: y,
+        speed: { min: 30, max: 100 },
+        scale: { start: 0.6, end: 0 },
+        alpha: { start: 1, end: 0 },
+        lifespan: 1000,
+        quantity: 12,
+        blendMode: 'ADD',
+        tint: [color, 0xffffff], // Item color + white
+        frequency: 50 // Emit every 50ms
+      });
+      
+      console.log(`✨ Sparkle emitter created:`, !!sparkles);
+      
+      // Auto-destroy after 1 second
+      this.time.delayedCall(1000, () => {
+        if (sparkles) sparkles.destroy();
+        console.log('✨ Sparkle emitter destroyed');
+      });
+    } catch (error) {
+      console.log(`⚠️ Error creating sparkle effect:`, error);
+    }
+  }
+  
+  // Get potion glow color based on potion type
+  getPotionGlowColor(potionSprite) {
+    switch (potionSprite) {
+      case 'blood':
+        return 0xff0000; // 🩸 Gooner Blood - Red glow
+      case 'water':
+        return 0x00ffff; // 💧 Water - Cyan glow
+      case 'yellow':
+        return 0xffff00; // 🟡 Golden Shower - Yellow glow
+      case 'goon':
+        return 0x800080; // 🟣 Goon Liquid - Purple glow
+      case 'poop':
+        return 0x8B4513; // 💩 Poop - Brown glow
+      case 'puke':
+        return 0x90EE90; // 🤮 Puke - Light green glow
+      default:
+        return 0xffffff; // Default white glow
+    }
+  }
+  
+  // Fallback glow effect using Phaser's built-in glow
+  addFallbackGlow(gameObject, carSprite) {
+    try {
+      console.log('🔄 Using fallback glow effect for:', carSprite);
+      
+      // Create a glow effect using a tint and alpha
+      const glowColor = this.getCarGlowColor(carSprite);
+      
+      // Set a subtle tint to simulate glow
+      gameObject.setTint(glowColor);
+      gameObject.setAlpha(0.9); // Slightly transparent for glow effect
+      
+      // Add a subtle scale effect
+      gameObject.setScale(gameObject.scale * 1.05);
+      
+      console.log(`✨ Added fallback glow effect to ${carSprite}`);
+    } catch (error) {
+      console.log(`⚠️ Error applying fallback glow:`, error);
+    }
+  }
+  
+  // Fallback glow effect for potions
+  addFallbackPotionGlow(gameObject, potionSprite) {
+    try {
+      console.log('🔄 Using bright potion glow for:', potionSprite);
+      
+      const glowColor = this.getPotionGlowColor(potionSprite);
+      
+      // Set bright tint for glow effect (no dimming)
+      gameObject.setTint(glowColor);
+      gameObject.setAlpha(1.0); // Fully opaque - no dimming
+      
+      // Add a more noticeable scale effect for glow
+      gameObject.setScale(gameObject.scale * 1.2);
+      
+      // Add a subtle brightness effect by setting blend mode
+      gameObject.setBlendMode('ADD');
+      
+      console.log(`✨ Added bright potion glow to ${potionSprite}`);
+    } catch (error) {
+      console.log(`⚠️ Error applying bright potion glow:`, error);
+    }
+  }
+  
+  // Fallback glow effect for police cars
+  addFallbackPoliceGlow(gameObject) {
+    try {
+      console.log('🔄 Using fallback police glow');
+      
+      // Set bright blue tint to simulate glow
+      gameObject.setTint(0x0000ff);
+      gameObject.setAlpha(0.85); // Slightly transparent for glow effect
+      
+      // Add a subtle scale effect
+      gameObject.setScale(gameObject.scale * 1.08);
+      
+      console.log(`✨ Added fallback police glow effect`);
+    } catch (error) {
+      console.log(`⚠️ Error applying fallback police glow:`, error);
+    }
+  }
+}

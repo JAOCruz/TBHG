@@ -28,7 +28,7 @@ export class HighScoresManager {
   }
   
   // Add a new score
-  addScore(score, playerName = null) {
+  addScore(score, playerName = null, carInfo = null) {
     const scores = this.getHighScores();
     const name = playerName || this.getRandomName();
     
@@ -36,7 +36,9 @@ export class HighScoresManager {
       name: name,
       score: score,
       date: new Date().toLocaleDateString(),
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      carSprite: carInfo?.sprite || 'van', // Store the car sprite name
+      carName: carInfo?.name || 'Van' // Store the car display name
     };
     
     scores.push(newScore);
@@ -101,13 +103,22 @@ export class HighScoresManager {
     
     return scores.map((score, index) => {
       const rankEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+      
+      // Create car image element
+      const carImage = score.carSprite ? 
+        `<img src="/kenny-pack/PNG/Cars/${score.carSprite}.png" alt="${score.carName}" class="w-8 h-8 object-contain" style="image-rendering: pixelated;">` : 
+        `<div class="w-8 h-8 bg-gray-300 rounded flex items-center justify-center text-xs">🚗</div>`;
+      
       return `
         <div class="flex justify-between items-center py-3 px-4 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} border-b border-gray-200">
           <div class="flex items-center space-x-3">
             <span class="text-lg font-bold text-red-600 w-8">${rankEmoji}</span>
-            <div>
-              <p class="font-semibold text-gray-800">${score.name}</p>
-              <p class="text-sm text-gray-500">${score.date}</p>
+            <div class="flex items-center space-x-2">
+              ${carImage}
+              <div>
+                <p class="font-semibold text-gray-800">${score.name}</p>
+                <p class="text-sm text-gray-500">${score.date} • ${score.carName}</p>
+              </div>
             </div>
           </div>
           <div class="text-right">

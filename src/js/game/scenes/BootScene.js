@@ -79,8 +79,16 @@ export class BootScene extends Phaser.Scene {
     // Keep 'player' as alias for van for backward compatibility
     this.load.image('player', `${basePath}Cars/van.png`);
     
-    // Collectible (blood slide - using a small red prop)
-    this.load.image('collectible', `${basePath}Props/sign_red.png`);
+    // Collectible (new floating items system)
+    this.load.image('blood', '/images/glass/blood.png');
+    this.load.image('water', '/images/glass/water.png');
+    this.load.image('yellow', '/images/glass/yellow.png');
+    this.load.image('goon', '/images/glass/goon.png');
+    this.load.image('poop', '/images/glass/poop.png');
+    this.load.image('puke', '/images/glass/puke.png');
+    
+    // Keep old collectible for backward compatibility
+    this.load.image('collectible', '/kenny-pack/PNG/Props/sign_red.png');
     
     // Obstacle (plastic wrap - using barrier)
     this.load.image('obstacle', `${basePath}Props/barrier.png`);
@@ -127,6 +135,9 @@ export class BootScene extends Phaser.Scene {
   loadBackgroundAssets() {
     // Load the background image directly from images folder (copied from kenny-pack/1.png)
     this.load.image('city_background', '/images/city_background.png');
+    
+    // Load Doakes jail image for game over screen
+    this.load.image('doakes_lost_jail', '/images/doakes_lost_jail.png');
     
     // If the image fails to load, try the original location
     this.load.on('fileerror', (key) => {

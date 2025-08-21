@@ -12,7 +12,9 @@ export class GameOverScene extends Phaser.Scene {
   init(data) {
     this.finalScore = data.score || 0;
     this.musicState = data.musicState || null;
+    this.carInfo = data.carInfo || { sprite: 'van', name: 'Van' }; // Store car information
     console.log('🎵 GameOver received music state:', this.musicState);
+    console.log('🚗 GameOver received car info:', this.carInfo);
   }
 
   create() {
@@ -30,6 +32,17 @@ export class GameOverScene extends Phaser.Scene {
 
     // Dark overlay
     this.add.rectangle(0, 0, this.cameras.main.width, this.cameras.main.height, 0x000000).setOrigin(0).setAlpha(0.8);
+
+    // Add Doakes jail image as dramatic background
+    try {
+      const doakesImage = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'doakes_lost_jail');
+      doakesImage.setScale(0.8); // Scale to fit nicely
+      doakesImage.setAlpha(0.3); // Make it subtle but visible
+      doakesImage.setDepth(1); // Behind the text but above background
+      console.log('🚔 Doakes jail image added to game over screen');
+    } catch (error) {
+      console.warn('Could not load Doakes jail image:', error);
+    }
 
     // Game Over text
     this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 - 150, 'GAME OVER', {
@@ -256,7 +269,7 @@ export class GameOverScene extends Phaser.Scene {
 
   submitScore(playerName) {
     if (this.highScoresManager) {
-      const result = this.highScoresManager.addScore(this.finalScore, playerName);
+      const result = this.highScoresManager.addScore(this.finalScore, playerName, this.carInfo);
       
       // Show confirmation
       const confirmText = this.add.text(this.cameras.main.width / 2, this.cameras.main.height / 2 + 50, 
