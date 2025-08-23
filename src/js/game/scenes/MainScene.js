@@ -104,6 +104,18 @@ export class MainScene extends Phaser.Scene {
       this.receivedMusicState = data.musicState;
     }
     
+    // Check if this is challenge mode
+    if (data && data.mode === 'challenge') {
+      console.log('🏆 Challenge mode activated:', data.challengeData);
+      this.challengeMode = true;
+      this.challengeData = data.challengeData;
+      this.setupChallengeMode();
+    } else {
+      console.log('🎮 Free roam mode activated');
+      this.challengeMode = false;
+      this.challengeData = null;
+    }
+    
     console.log('🎮 MainScene: Starting game...');
     
     // Refresh selected car from localStorage (in case it was changed in menu)
@@ -311,10 +323,14 @@ export class MainScene extends Phaser.Scene {
     // Update police AI
     this.updatePoliceAI();
     
+    // Update challenge mode if active
+    if (this.challengeMode) {
+      this.updateChallengeMode(time);
+    }
+    
     // Check if level should increase
     if (time - this.lastScoreUpdate > 1000 && this.score > 0 && this.score % 10 === 0) {
       this.levelUp();
-      this.lastScoreUpdate = time;
     }
     
     // Manual collision test - check if player and enemies are overlapping
@@ -1834,21 +1850,14 @@ export class MainScene extends Phaser.Scene {
   
   // Handle collecting items (new floating items system)
   collectItem(player, collectible) {
-    if (!collectible.collectibleData) {
-      console.warn('🎲 Collectible missing data, using fallback behavior');
-      // Fallback: treat as old blood slide
-      this.score += 1;
-      if (this.scoreText) this.scoreText.setText(`SCORE: ${this.score.toString().padStart(6, '0')}`);
-      collectible.destroy();
-      return;
-    }
+    if (!collectible.collectibleData) return;
     
     const data = collectible.collectibleData;
-    console.log(`🎲 COLLECTED: ${data.name} - Effect: ${data.description}`);
     
-    // Play collection sound
-    if (this.sound.get('collect')) {
-      this.sound.play('collect', { volume: 0.3 });
+    // Track potion collection for challenges
+    if (this.challengeMode && this.challengeSpecialRules.includes('collect_10_potions_no_death')) {
+      this.potionsCollected++;
+      console.log(`🏆 Potion collected: ${this.potionsCollected}/${this.potionsTarget}`);
     }
     
     // Handle different collectible effects
@@ -1876,7 +1885,7 @@ export class MainScene extends Phaser.Scene {
         
       case 'points':
         if (data.value > 0) {
-          // �� Golden Shower / 🟣 Goon Liquid: +points
+          // 🟡 Golden Shower / 🟣 Goon Liquid: +points
           const points = data.value * this.multiplier * this.starMultiplier;
           this.score += points;
           this.showFloatingText(`${data.name}: +${points} POINTS`, collectible.x, collectible.y, data.color);
@@ -2881,5 +2890,549 @@ export class MainScene extends Phaser.Scene {
     } catch (error) {
       console.log(`⚠️ Error applying fallback police glow:`, error);
     }
+  }
+
+  // Setup challenge mode with specific rules and restrictions
+  setupChallengeMode() {
+    if (!this.challengeData) return;
+    
+    console.log('🏆 Setting up challenge mode:', this.challengeData.name);
+    
+    // Set challenge-specific game state
+    this.challengeStartTime = this.time.now;
+    this.challengeTimeLimit = this.challengeData.timeLimit;
+    this.challengeScoreTarget = this.challengeData.scoreTarget;
+    this.challengeSpecialRules = this.challengeData.specialRules;
+    
+    // Set police level
+    this.stars = this.challengeData.police;
+    this.updatePoliceSpawnRate();
+    
+    // Set challenge timer
+    this.challengeTimer = this.time.addEvent({
+      delay: this.challengeTimeLimit,
+      callback: this.challengeTimeUp,
+      callbackScope: this,
+      loop: false
+    });
+    
+    // Add challenge UI
+    this.createChallengeUI();
+    
+    // Apply special rules
+    this.applyChallengeRules();
+    
+    console.log('🏆 Challenge mode setup complete');
+  }
+  
+  // Create challenge-specific UI
+  createChallengeUI() {
+    const centerX = this.cameras.main.width / 2;
+    
+    // Challenge timer display
+    this.challengeTimerText = this.add.text(centerX, 50, '', {
+      fontSize: '24px',
+      fill: '#ff6600',
+      fontFamily: 'Arial Black',
+      stroke: '#000000',
+      strokeThickness: 3
+    });
+    this.challengeTimerText.setOrigin(0.5);
+    
+    // Challenge objective display
+    this.challengeObjectiveText = this.add.text(centerX, 80, '', {
+      fontSize: '18px',
+      fill: '#ffffff',
+      fontFamily: 'Arial',
+      stroke: '#000000',
+      strokeThickness: 2
+    });
+    this.challengeObjectiveText.setOrigin(0.5);
+    
+    // Update challenge UI
+    this.updateChallengeUI();
+  }
+  
+  // Update challenge UI with current progress
+  updateChallengeUI() {
+    if (!this.challengeMode || !this.challengeTimerText) return;
+    
+    const timeLeft = Math.max(0, this.challengeTimeLimit - (this.time.now - this.challengeStartTime));
+    const minutes = Math.floor(timeLeft / 60000);
+    const seconds = Math.floor((timeLeft % 60000) / 1000);
+    
+    this.challengeTimerText.setText(`Time: ${minutes}:${seconds.toString().padStart(2, '0')}`);
+    
+    const progress = `${this.score}/${this.challengeScoreTarget} points`;
+    this.challengeObjectiveText.setText(`Objective: ${progress}`);
+    
+    // Change color based on progress
+    if (this.score >= this.challengeScoreTarget) {
+      this.challengeObjectiveText.setFill('#00ff00'); // Green when objective met
+    } else {
+      this.challengeObjectiveText.setFill('#ffffff'); // White when in progress
+    }
+  }
+  
+  // Apply challenge special rules
+  applyChallengeRules() {
+    if (!this.challengeSpecialRules) return;
+    
+    this.challengeSpecialRules.forEach(rule => {
+      switch (rule) {
+        case 'no_crash_2min':
+          this.setupNoCrashRule();
+          break;
+        case 'maintain_3stars_2min':
+          this.setupMaintainStarsRule();
+          break;
+        case 'collect_10_potions_no_death':
+          this.setupCollectPotionsRule();
+          break;
+      }
+    });
+  }
+  
+  // Setup no crash rule
+  setupNoCrashRule() {
+    this.noCrashStartTime = this.time.now;
+    this.noCrashDuration = 120000; // 2 minutes
+    console.log('🏆 No crash rule activated for 2 minutes');
+  }
+  
+  // Setup maintain stars rule
+  setupMaintainStarsRule() {
+    this.maintainStarsStartTime = this.time.now;
+    this.maintainStarsDuration = 120000; // 2 minutes
+    this.maintainStarsTarget = 3;
+    console.log('🏆 Maintain 3+ stars rule activated for 2 minutes');
+  }
+  
+  // Setup collect potions rule
+  setupCollectPotionsRule() {
+    this.potionsCollected = 0;
+    this.potionsTarget = 10;
+    console.log('🏆 Collect 10 potions rule activated');
+  }
+  
+  // Challenge time up callback
+  challengeTimeUp() {
+    console.log('🏆 Challenge time limit reached!');
+    this.checkChallengeCompletion();
+  }
+  
+  // Check if challenge objectives are met
+  checkChallengeCompletion() {
+    if (!this.challengeMode) return;
+    
+    let success = true;
+    const failures = [];
+    
+    // Check score objective
+    if (this.score < this.challengeScoreTarget) {
+      success = false;
+      failures.push(`Score target not met (${this.score}/${this.challengeScoreTarget})`);
+    }
+    
+    // Check special rules
+    if (this.challengeSpecialRules.includes('no_crash_2min')) {
+      const timeSinceStart = this.time.now - this.noCrashStartTime;
+      if (timeSinceStart < this.noCrashDuration) {
+        success = false;
+        failures.push('No crash rule failed');
+      }
+    }
+    
+    if (this.challengeSpecialRules.includes('maintain_3stars_2min')) {
+      const timeSinceStart = this.time.now - this.maintainStarsStartTime;
+      if (timeSinceStart < this.maintainStarsDuration || this.stars < this.maintainStarsTarget) {
+        success = false;
+        failures.push('Maintain stars rule failed');
+      }
+    }
+    
+    if (this.challengeSpecialRules.includes('collect_10_potions_no_death')) {
+      if (this.potionsCollected < this.potionsTarget) {
+        success = false;
+        failures.push(`Potion collection target not met (${this.potionsCollected}/${this.potionsTarget})`);
+      }
+    }
+    
+    // Handle challenge result
+    if (success) {
+      this.challengeSuccess();
+    } else {
+      this.challengeFailed(failures);
+    }
+  }
+  
+  // Challenge success
+  challengeSuccess() {
+    console.log('🏆 Challenge completed successfully!');
+    
+    // Save best record
+    this.saveChallengeRecord();
+    
+    // Show success message
+    this.showChallengeResult(true);
+  }
+  
+  // Challenge failed
+  challengeFailed(failures) {
+    console.log('🏆 Challenge failed:', failures);
+    
+    // Show failure message
+    this.showChallengeResult(false, failures);
+  }
+  
+  // Show challenge result
+  showChallengeResult(success, failures = []) {
+    const centerX = this.cameras.main.width / 2;
+    const centerY = this.cameras.main.height / 2;
+    
+    // Overlay
+    const overlay = this.add.rectangle(0, 0, this.cameras.main.width, this.cameras.main.height, 0x000000, 0.8);
+    overlay.setOrigin(0);
+    
+    // Result text
+    const resultText = this.add.text(centerX, centerY - 50, success ? 'CHALLENGE COMPLETED!' : 'CHALLENGE FAILED!', {
+      fontSize: '32px',
+      fill: success ? '#00ff00' : '#ff0000',
+      fontFamily: 'Arial Black',
+      stroke: '#000000',
+      strokeThickness: 3
+    });
+    resultText.setOrigin(0.5);
+    
+    // Details
+    if (failures.length > 0) {
+      const failureText = this.add.text(centerX, centerY, `Failed: ${failures.join(', ')}`, {
+        fontSize: '18px',
+        fill: '#ff6666',
+        fontFamily: 'Arial'
+      });
+      failureText.setOrigin(0.5);
+    }
+    
+    // Continue button
+    const continueBtn = this.createRetroButton(centerX, centerY + 100, 'CONTINUE', () => {
+      this.scene.start('MenuScene');
+    });
+  }
+  
+  // Save challenge record
+  saveChallengeRecord() {
+    if (!this.challengeData) return;
+    
+    const timeElapsed = this.time.now - this.challengeStartTime;
+    const record = {
+      challengeId: this.challengeData.id,
+      time: timeElapsed,
+      score: this.score,
+      date: new Date().toISOString()
+    };
+    
+    // Save to localStorage
+    const records = JSON.parse(localStorage.getItem('challengeRecords') || '{}');
+    records[this.challengeData.id] = record;
+    localStorage.setItem('challengeRecords', JSON.stringify(records));
+    
+    console.log('🏆 Challenge record saved:', record);
+  }
+
+  // Update challenge mode logic
+  updateChallengeMode(time) {
+    if (!this.challengeMode || !this.challengeData) return;
+    
+    // Update challenge UI
+    this.updateChallengeUI();
+    
+    // Check for early completion
+    if (this.score >= this.challengeScoreTarget) {
+      // Check if all special rules are met
+      let allRulesMet = true;
+      
+      if (this.challengeSpecialRules.includes('no_crash_2min')) {
+        const timeSinceStart = time - this.noCrashStartTime;
+        if (timeSinceStart < this.noCrashDuration) {
+          allRulesMet = false;
+        }
+      }
+      
+      if (this.challengeSpecialRules.includes('maintain_3stars_2min')) {
+        const timeSinceStart = time - this.maintainStarsStartTime;
+        if (timeSinceStart < this.maintainStarsDuration || this.stars < this.maintainStarsTarget) {
+          allRulesMet = false;
+        }
+      }
+      
+      if (this.challengeSpecialRules.includes('collect_10_potions_no_death')) {
+        if (this.potionsCollected < this.potionsTarget) {
+          allRulesMet = false;
+        }
+      }
+      
+      // If all rules are met, complete the challenge early
+      if (allRulesMet) {
+        console.log('🏆 Challenge completed early!');
+        this.challengeSuccess();
+      }
+    }
+    
+    // Check for rule violations
+    this.checkChallengeRuleViolations(time);
+  }
+  
+  // Check for challenge rule violations
+  checkChallengeRuleViolations(time) {
+    if (!this.challengeSpecialRules) return;
+    
+    // Check no crash rule
+    if (this.challengeSpecialRules.includes('no_crash_2min')) {
+      const timeSinceStart = time - this.noCrashStartTime;
+      if (timeSinceStart < this.noCrashDuration) {
+        // Player crashed during no-crash period
+        if (this.lives < 3) { // Assuming 3 is max lives
+          console.log('🏆 No crash rule violated!');
+          this.challengeFailed(['Crashed during no-crash period']);
+        }
+      }
+    }
+    
+    // Check maintain stars rule
+    if (this.challengeSpecialRules.includes('maintain_3stars_2min')) {
+      const timeSinceStart = time - this.maintainStarsStartTime;
+      if (timeSinceStart < this.maintainStarsDuration) {
+        if (this.stars < this.maintainStarsTarget) {
+          console.log('🏆 Maintain stars rule violated!');
+          this.challengeFailed(['Stars dropped below required level']);
+        }
+      }
+    }
+  }
+
+  // Show car selection screen
+  showCarSelection() {
+    this.clearCurrentMenu();
+    
+    const centerX = this.cameras.main.width / 2;
+    const centerY = this.cameras.main.height / 2;
+    
+    // Title
+    const title = this.add.text(centerX, centerY - 250, 'SELECT YOUR VEHICLE', {
+      fontSize: '32px',
+      fill: '#ff6600',
+      fontFamily: 'Arial Black',
+      stroke: '#000000',
+      strokeThickness: 3
+    });
+    title.setOrigin(0.5);
+    
+    // Get available cars based on mode
+    const availableCars = this.getAvailableCars();
+    
+    // Display available cars
+    availableCars.forEach((car, index) => {
+      const yPos = centerY - 150 + (index * 120);
+      
+      // Car container
+      const container = this.add.container(centerX, yPos);
+      
+      // Background
+      const bg = this.add.rectangle(0, 0, 700, 100, 0x333333);
+      bg.setStrokeStyle(2, 0x666666);
+      container.add(bg);
+      
+      // Car image
+      const carImage = this.add.image(-300, 0, car.sprite);
+      carImage.setScale(2);
+      container.add(carImage);
+      
+      // Car name
+      const nameText = this.add.text(-200, -30, car.name, {
+        fontSize: '24px',
+        fill: '#ff6600',
+        fontFamily: 'Arial Black'
+      });
+      container.add(nameText);
+      
+      // Car stats
+      const stats = [
+        `Speed: ${car.stats.maxSpeed}`,
+        `Acceleration: ${car.stats.acceleration}`,
+        `Braking: ${car.stats.deceleration}`,
+        `Handling: ${car.stats.handling}`
+      ];
+      
+      stats.forEach((stat, statIndex) => {
+        const statText = this.add.text(-200, 0 + (statIndex * 20), stat, {
+          fontSize: '16px',
+          fill: '#cccccc',
+          fontFamily: 'Arial'
+        });
+        container.add(statText);
+      });
+      
+      // Make clickable
+      container.setSize(700, 100);
+      container.setInteractive({ useHandCursor: true });
+      container.on('pointerdown', () => {
+        this.selectCar(car.sprite);
+      });
+      
+      // Hover effect
+      container.on('pointerover', () => {
+        bg.setFillStyle(0x444444);
+      });
+      container.on('pointerout', () => {
+        bg.setFillStyle(0x333333);
+      });
+    });
+    
+    // Navigation buttons
+    if (availableCars.length > 1) {
+      const prevBtn = this.createRetroButton(centerX - 200, centerY + 150, '← PREVIOUS', () => {
+        this.previousCar();
+      });
+      
+      const nextBtn = this.createRetroButton(centerX + 200, centerY + 150, 'NEXT →', () => {
+        this.nextCar();
+      });
+    }
+    
+    // Start button
+    const startBtn = this.createRetroButton(centerX, centerY + 200, 'START WITH THIS CAR', () => {
+      this.startGame();
+    });
+    
+    // Back button
+    const backBtn = this.createRetroButton(centerX, centerY + 270, 'BACK TO MENU', () => {
+      if (this.challengeMode) {
+        this.scene.start('MenuScene');
+      } else {
+        this.showMainMenu();
+      }
+    });
+    
+    this.currentMenu = 'car_selection';
+  }
+  
+  // Get available cars based on game mode
+  getAvailableCars() {
+    if (this.challengeMode && this.challengeData) {
+      // Challenge mode - restricted cars
+      const challengeCars = this.challengeData.cars;
+      return this.carData.filter(car => challengeCars.includes(car.sprite));
+    } else {
+      // Free roam mode - all cars available
+      return this.carData;
+    }
+  }
+  
+  // Select a car
+  selectCar(carSprite) {
+    this.selectedCar = carSprite;
+    console.log(`🚗 Car selected: ${carSprite}`);
+    
+    // Highlight selected car
+    // This could be enhanced with visual feedback
+  }
+  
+  // Start the game with selected car
+  startGame() {
+    if (!this.selectedCar) {
+      console.warn('No car selected!');
+      return;
+    }
+    
+    console.log(`🎮 Starting game with car: ${this.selectedCar}`);
+    
+    // Create player with selected car
+    this.createPlayer(this.selectedCar);
+    
+    // Start spawning
+    this.startSpawning();
+  }
+  
+  // Previous car (for navigation)
+  previousCar() {
+    const availableCars = this.getAvailableCars();
+    if (availableCars.length <= 1) return;
+    
+    const currentIndex = availableCars.findIndex(car => car.sprite === this.selectedCar);
+    const prevIndex = currentIndex > 0 ? currentIndex - 1 : availableCars.length - 1;
+    this.selectedCar = availableCars[prevIndex].sprite;
+    
+    // Refresh car selection display
+    this.showCarSelection();
+  }
+  
+  // Next car (for navigation)
+  nextCar() {
+    const availableCars = this.getAvailableCars();
+    if (availableCars.length <= 1) return;
+    
+    const currentIndex = availableCars.findIndex(car => car.sprite === this.selectedCar);
+    const nextIndex = currentIndex < availableCars.length - 1 ? currentIndex + 1 : 0;
+    this.selectedCar = availableCars[nextIndex].sprite;
+    
+    // Refresh car selection display
+    this.showCarSelection();
+  }
+
+  // Car data with stats
+  get carData() {
+    return [
+      {
+        sprite: 'van',
+        name: 'Van',
+        stats: {
+          maxSpeed: 300,
+          acceleration: 800,
+          deceleration: 1080,
+          handling: 0.8
+        }
+      },
+      {
+        sprite: 'sports_convertible',
+        name: 'Sports Convertible',
+        stats: {
+          maxSpeed: 420,
+          acceleration: 1200,
+          deceleration: 1000,
+          handling: 1.3
+        }
+      },
+      {
+        sprite: 'vintage',
+        name: 'Vintage',
+        stats: {
+          maxSpeed: 280,
+          acceleration: 600,
+          deceleration: 1200,
+          handling: 0.6
+        }
+      },
+      {
+        sprite: 'sedan_vintage',
+        name: 'Sedan Vintage',
+        stats: {
+          maxSpeed: 350,
+          acceleration: 900,
+          deceleration: 1100,
+          handling: 1.0
+        }
+      },
+      {
+        sprite: 'formula',
+        name: 'Formula',
+        stats: {
+          maxSpeed: 500,
+          acceleration: 1500,
+          deceleration: 800,
+          handling: 1.5
+        }
+      }
+    ];
   }
 }

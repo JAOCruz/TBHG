@@ -40,177 +40,55 @@ export class MenuScene extends Phaser.Scene {
   }
   
   showMainMenu() {
-    // Clear any existing content
     this.clearMenuContent();
-    this.currentView = 'main';
     
-    // Recreate persistent buttons
-    this.createMuteButton();
-    this.createCloseButton();
+    const centerX = this.cameras.main.width / 2;
+    const centerY = this.cameras.main.height / 2;
     
-    // Dark cinematic overlay with subtle scan lines effect
-    this.add.rectangle(0, 0, this.cameras.main.width, this.cameras.main.height, 0x000000).setOrigin(0).setAlpha(0.85);
-    
-    // Add retro scan lines overlay
-    const scanLines = this.add.graphics();
-    scanLines.lineStyle(1, 0x00ff00, 0.1);
-    for (let y = 0; y < this.cameras.main.height; y += 4) {
-      scanLines.moveTo(0, y);
-      scanLines.lineTo(this.cameras.main.width, y);
-    }
-    scanLines.strokePath();
-    scanLines.setDepth(-1);
-    
-    // Main title with 90s arcade styling
-    const titleText = this.add.text(this.cameras.main.width / 2, 100, 'BAY HARBOR GOONER', {
-      fontFamily: 'Courier New, monospace',
+    // Game title with tagline
+    const title = this.add.text(centerX, centerY - 200, 'THE BAY HARBOR GOONER', {
       fontSize: '48px',
-      fontStyle: 'bold',
-      fill: '#00ff00',
+      fill: '#ff0000',
+      fontFamily: 'Arial Black',
       stroke: '#000000',
-      strokeThickness: 4,
-      shadow: {
-        offsetX: 3,
-        offsetY: 3,
-        color: '#004400',
-        blur: 0,
-        stroke: false,
-        fill: true
-      }
-    }).setOrigin(0.5).setDepth(5);
+      strokeThickness: 4
+    });
+    title.setOrigin(0.5);
     
-    // Add blinking effect to title
-    this.tweens.add({
-      targets: titleText,
-      alpha: { from: 1, to: 0.7 },
-      duration: 800,
-      yoyo: true,
-      repeat: -1
+    const tagline = this.add.text(centerX, centerY - 150, 'The dark passenger takes over, using only one hand...', {
+      fontSize: '24px',
+      fill: '#cccccc',
+      fontFamily: 'Arial',
+      fontStyle: 'italic'
+    });
+    tagline.setOrigin(0.5);
+    
+    // Game mode selection buttons
+    const freeRoamBtn = this.createRetroButton(centerX, centerY - 50, 'FREE ROAM MODE', () => {
+      this.showCarSelection('free_roam');
     });
     
-    // Subtitle with retro styling
-    this.add.text(this.cameras.main.width / 2, 140, 'SUPER NINTENDO ENTERTAINMENT SYSTEM', {
-      fontFamily: 'Courier New, monospace',
-      fontSize: '12px',
-      fill: '#888888',
-      stroke: '#000000',
-      strokeThickness: 1
-    }).setOrigin(0.5).setDepth(5);
-    
-    // Tagline with classic game feel
-    this.add.text(this.cameras.main.width / 2, 170, '"The Dark Passenger Takes Over, With just one hand"', {
-      fontFamily: 'Courier New, monospace',
-      fontSize: '16px',
-      fontStyle: 'italic',
-      fill: '#ff6600',
-      stroke: '#000000',
-      strokeThickness: 2
-    }).setOrigin(0.5).setDepth(5);
-    
-    // Retro button styling function
-    const createRetroButton = (x, y, text, color = '#4444aa') => {
-      const button = this.add.container(x, y);
-      
-      // Button shadow (bottom-right)
-      const shadow = this.add.rectangle(2, 2, 200, 40, 0x000000).setAlpha(0.5);
-      
-      // Button border (dark)
-      const border = this.add.rectangle(0, 0, 200, 40, 0x222222);
-      
-      // Button face (main color)
-      const face = this.add.rectangle(0, 0, 196, 36, color);
-      
-      // Button highlight (top-left)
-      const highlight = this.add.rectangle(-2, -2, 196, 4, 0xffffff).setAlpha(0.3);
-      const highlightLeft = this.add.rectangle(-98, 0, 4, 36, 0xffffff).setAlpha(0.3);
-      
-      // Button text
-      const buttonText = this.add.text(0, 0, text, {
-        fontFamily: 'Courier New, monospace',
-        fontSize: '16px',
-        fontStyle: 'bold',
-        fill: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 2
-      }).setOrigin(0.5);
-      
-      button.add([shadow, border, face, highlight, highlightLeft, buttonText]);
-      button.setSize(200, 40);
-      button.setInteractive({ useHandCursor: true });
-      
-      // Button press effect
-      button.on('pointerdown', () => {
-        button.setScale(0.95);
-        // Play retro beep sound if available
-        if (this.sound.get('beep')) {
-          this.sound.play('beep', { volume: 0.3 });
-        }
-      });
-      
-      button.on('pointerup', () => {
-        button.setScale(1);
-      });
-      
-      button.on('pointerover', () => {
-        face.setFillStyle(0x6666cc);
-        buttonText.setScale(1.05);
-      });
-      
-      button.on('pointerout', () => {
-        face.setFillStyle(color);
-        buttonText.setScale(1);
-      });
-      
-      return button;
-    };
-    
-    // Create retro-styled menu buttons
-    const startButton = createRetroButton(this.cameras.main.width / 2, 240, 'START GAME', 0x00aa00);
-    const controlsButton = createRetroButton(this.cameras.main.width / 2, 300, 'CONTROLS', 0x4444aa);
-    const rulesButton = createRetroButton(this.cameras.main.width / 2, 360, 'RULES', 0xaa4400);
-    const scoresButton = createRetroButton(this.cameras.main.width / 2, 420, 'HIGH SCORES', 0xaa0044);
-    
-    // Button functionality
-    startButton.on('pointerdown', () => {
-      this.showCarSelection();
+    const challengeBtn = this.createRetroButton(centerX, centerY + 20, 'CHALLENGE MODE', () => {
+      this.showChallengeMenu();
     });
     
-    controlsButton.on('pointerdown', () => {
+    const controlsBtn = this.createRetroButton(centerX, centerY + 90, 'CONTROLS', () => {
       this.showControlsMenu();
     });
     
-    rulesButton.on('pointerdown', () => {
+    const rulesBtn = this.createRetroButton(centerX, centerY + 160, 'RULES', () => {
       this.showRulesMenu();
     });
     
-    scoresButton.on('pointerdown', () => {
+    const highScoresBtn = this.createRetroButton(centerX, centerY + 230, 'HIGH SCORES', () => {
       this.showHighScores();
     });
     
-    // Classic arcade footer
-    this.add.text(this.cameras.main.width / 2, 500, '© 1993 BAY HARBOR PRODUCTIONS', {
-      fontFamily: 'Courier New, monospace',
-      fontSize: '10px',
-      fill: '#666666'
-    }).setOrigin(0.5).setDepth(5);
+    // Volume and exit controls
+    this.createVolumeControls();
+    this.createExitButton();
     
-    this.add.text(this.cameras.main.width / 2, 520, 'INSERT COIN TO CONTINUE', {
-      fontFamily: 'Courier New, monospace',
-      fontSize: '12px',
-      fill: '#ffff00',
-      stroke: '#000000',
-      strokeThickness: 1
-    }).setOrigin(0.5).setDepth(5);
-    
-    // Make "INSERT COIN" blink
-    const insertCoin = this.children.list[this.children.list.length - 1];
-    this.tweens.add({
-      targets: insertCoin,
-      alpha: { from: 1, to: 0.3 },
-      duration: 600,
-      yoyo: true,
-      repeat: -1
-    });
+    this.currentMenu = 'main';
   }
   
   showControlsMenu() {
@@ -293,90 +171,201 @@ export class MenuScene extends Phaser.Scene {
     this.createBackButton();
   }
   
+  // Show high scores screen
   showHighScores() {
     this.clearMenuContent();
-    this.currentView = 'scores';
     
-    // Dark overlay
-    this.add.rectangle(0, 0, this.cameras.main.width, this.cameras.main.height, 0x000000).setOrigin(0).setAlpha(0.7);
+    const centerX = this.cameras.main.width / 2;
+    const centerY = this.cameras.main.height / 2;
     
     // Title
-    this.add.text(this.cameras.main.width / 2, 80, 'HIGH SCORES', {
-      font: 'bold 42px Arial',
-      fill: '#7c2d12',
+    const title = this.add.text(centerX, centerY - 250, 'HIGH SCORES', {
+      fontSize: '32px',
+      fill: '#ff6600',
+      fontFamily: 'Arial Black',
       stroke: '#000000',
-      strokeThickness: 4
-    }).setOrigin(0.5);
+      strokeThickness: 3
+    });
+    title.setOrigin(0.5);
     
-    // Import and use HighScoresManager
-    import('../high-scores.js').then(({ HighScoresManager }) => {
-      const highScoresManager = new HighScoresManager();
-      const scores = highScoresManager.getHighScores();
-      
-      if (scores.length === 0) {
-        this.add.text(this.cameras.main.width / 2, 250, '🏆 No scores yet!', {
-          font: 'bold 24px Arial',
-          fill: '#888888'
-        }).setOrigin(0.5);
-        
-        this.add.text(this.cameras.main.width / 2, 290, 'Be the first to make the leaderboard!', {
-          font: '18px Arial',
-          fill: '#666666'
-        }).setOrigin(0.5);
-      } else {
-        // Display top 8 scores
-        const startY = 160;
-        const lineHeight = 35;
-        let currentY = startY;
-        
-        this.add.text(this.cameras.main.width / 2, currentY, 'TOP PLAYERS', {
-          font: 'bold 20px Arial',
-          fill: '#cccccc'
-        }).setOrigin(0.5);
-        currentY += 40;
-        
-        scores.slice(0, 8).forEach((score, index) => {
-          const rankEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-          const isTopThree = index < 3;
-          
-          // Rank
-          this.add.text(this.cameras.main.width / 2 - 180, currentY, rankEmoji, {
-            font: 'bold 20px Arial',
-            fill: isTopThree ? '#ffff00' : '#ffffff'
-          }).setOrigin(0.5);
-          
-          // Name
-          this.add.text(this.cameras.main.width / 2 - 120, currentY, score.name, {
-            font: isTopThree ? 'bold 16px Arial' : '16px Arial',
-            fill: isTopThree ? '#ffffff' : '#cccccc'
-          }).setOrigin(0, 0.5);
-          
-          // Score
-          this.add.text(this.cameras.main.width / 2 + 120, currentY, highScoresManager.formatScore(score.score), {
-            font: isTopThree ? 'bold 16px Arial' : '16px Arial',
-            fill: isTopThree ? '#7c2d12' : '#888888'
-          }).setOrigin(1, 0.5);
-          
-          // Date
-          this.add.text(this.cameras.main.width / 2 + 180, currentY, score.date, {
-            font: '12px Arial',
-            fill: '#666666'
-          }).setOrigin(1, 0.5);
-          
-          currentY += lineHeight;
-        });
-        
-        if (scores.length > 8) {
-          this.add.text(this.cameras.main.width / 2, currentY + 20, `...and ${scores.length - 8} more scores`, {
-            font: 'italic 14px Arial',
-            fill: '#666666'
-          }).setOrigin(0.5);
-        }
+    // High scores content (placeholder)
+    const scoresText = this.add.text(centerX, centerY - 100, 'High scores will be displayed here', {
+      fontSize: '18px',
+      fill: '#cccccc',
+      fontFamily: 'Arial'
+    });
+    scoresText.setOrigin(0.5);
+    
+    // Back button
+    const backBtn = this.createRetroButton(centerX, centerY + 200, 'BACK TO MAIN MENU', () => {
+      this.showMainMenu();
+    });
+    
+    this.currentMenu = 'high_scores';
+  }
+  
+  // Show challenge menu
+  showChallengeMenu() {
+    this.clearMenuContent();
+    
+    const centerX = this.cameras.main.width / 2;
+    const centerY = this.cameras.main.height / 2;
+    
+    // Title
+    const title = this.add.text(centerX, centerY - 250, 'CHALLENGE MODE', {
+      fontSize: '36px',
+      fill: '#ff6600',
+      fontFamily: 'Arial Black',
+      stroke: '#000000',
+      strokeThickness: 3
+    });
+    title.setOrigin(0.5);
+    
+    const subtitle = this.add.text(centerX, centerY - 210, 'Complete missions to unlock new content', {
+      fontSize: '18px',
+      fill: '#cccccc',
+      fontFamily: 'Arial'
+    });
+    subtitle.setOrigin(0.5);
+    
+    // Challenge levels
+    const challenges = [
+      {
+        id: 'level1',
+        name: 'First Blood',
+        description: 'Score 20 points and survive 1 minute',
+        difficulty: 'Beginner',
+        cars: ['Van'],
+        police: '0 stars',
+        reward: 'Unlock Sports Convertible',
+        bestRecord: this.getChallengeBestRecord('level1')
+      },
+      {
+        id: 'level2',
+        name: 'Street Racer',
+        description: 'Score 50 points and survive 2 minutes',
+        difficulty: 'Easy',
+        cars: ['Van', 'Sports Convertible'],
+        police: '1 star',
+        reward: 'Unlock Vintage car',
+        bestRecord: this.getChallengeBestRecord('level2')
+      },
+      {
+        id: 'level3',
+        name: 'Wanted Man',
+        description: 'Score 100 points and survive 3 minutes',
+        difficulty: 'Medium',
+        cars: ['Van', 'Sports', 'Vintage'],
+        police: '2 stars',
+        special: 'Don\'t crash for 2 minutes',
+        reward: 'Unlock Sedan Vintage',
+        bestRecord: this.getChallengeBestRecord('level3')
+      },
+      {
+        id: 'level4',
+        name: 'Highway Hell',
+        description: 'Score 200 points and survive 4 minutes',
+        difficulty: 'Hard',
+        cars: ['Van', 'Sports', 'Vintage', 'Sedan'],
+        police: '3 stars',
+        special: 'Maintain 3+ stars for 2 minutes',
+        reward: 'Unlock Formula car',
+        bestRecord: this.getChallengeBestRecord('level4')
+      },
+      {
+        id: 'level5',
+        name: 'Ultimate Gooner',
+        description: 'Score 500 points and survive 5 minutes',
+        difficulty: 'Expert',
+        cars: ['All Available'],
+        police: '4-5 stars',
+        special: 'Collect 10 potions without losing life',
+        reward: 'Special Achievement',
+        bestRecord: this.getChallengeBestRecord('level5')
       }
+    ];
+    
+    // Display challenges
+    challenges.forEach((challenge, index) => {
+      const yPos = centerY - 150 + (index * 80);
+      
+      // Challenge container
+      const container = this.add.container(centerX, yPos);
+      
+      // Background
+      const bg = this.add.rectangle(0, 0, 600, 70, 0x333333);
+      bg.setStrokeStyle(2, 0x666666);
+      container.add(bg);
+      
+      // Challenge name
+      const nameText = this.add.text(-280, -25, challenge.name, {
+        fontSize: '20px',
+        fill: '#ff6600',
+        fontFamily: 'Arial Black'
+      });
+      container.add(nameText);
+      
+      // Difficulty badge
+      const difficultyColor = this.getDifficultyColor(challenge.difficulty);
+      const difficultyBg = this.add.rectangle(-200, -15, 80, 20, difficultyColor);
+      const difficultyText = this.add.text(-200, -15, challenge.difficulty, {
+        fontSize: '12px',
+        fill: '#ffffff',
+        fontFamily: 'Arial'
+      });
+      difficultyText.setOrigin(0.5);
+      container.add(difficultyBg);
+      container.add(difficultyText);
+      
+      // Description
+      const descText = this.add.text(-280, 5, challenge.description, {
+        fontSize: '14px',
+        fill: '#cccccc',
+        fontFamily: 'Arial'
+      });
+      container.add(descText);
+      
+      // Cars available
+      const carsText = this.add.text(-280, 25, `Cars: ${challenge.cars.join(', ')}`, {
+        fontSize: '12px',
+        fill: '#888888',
+        fontFamily: 'Arial'
+      });
+      container.add(carsText);
+      
+      // Best record
+      if (challenge.bestRecord) {
+        const recordText = this.add.text(200, 0, `Best: ${challenge.bestRecord}`, {
+          fontSize: '16px',
+          fill: '#00ff00',
+          fontFamily: 'Arial Black'
+        });
+        recordText.setOrigin(0.5);
+        container.add(recordText);
+      }
+      
+      // Make clickable
+      container.setSize(600, 70);
+      container.setInteractive({ useHandCursor: true });
+      container.on('pointerdown', () => {
+        this.startChallenge(challenge.id);
+      });
+      
+      // Hover effect
+      container.on('pointerover', () => {
+        bg.setFillStyle(0x444444);
+      });
+      container.on('pointerout', () => {
+        bg.setFillStyle(0x333333);
+      });
     });
     
     // Back button
-    this.createBackButton();
+    const backBtn = this.createRetroButton(centerX, centerY + 200, 'BACK TO MAIN MENU', () => {
+      this.showMainMenu();
+    });
+    
+    this.currentMenu = 'challenges';
   }
   
   showCarSelection() {
@@ -786,26 +775,524 @@ export class MenuScene extends Phaser.Scene {
     });
   }
   
+  // Clear menu content (existing method)
   clearMenuContent() {
-    // Create a copy of the children list to avoid modification during iteration
-    const childrenCopy = [...this.children.list];
+    // Remove all children except background elements
+    this.children.removeAll(true);
     
-    childrenCopy.forEach(child => {
-      // Keep background elements (depth -2)
-      if (child.depth === -2 || child === this.cityBg || child === this.cityBg2) {
-        return;
+    // Recreate background elements
+    this.createCityBackground();
+    this.createMuteButton();
+  }
+  
+  // Create retro-styled button
+  createRetroButton(x, y, text, callback) {
+    const button = this.add.container(x, y);
+    
+    // Button shadow (bottom-right)
+    const shadow = this.add.rectangle(2, 2, 200, 40, 0x000000).setAlpha(0.5);
+    
+    // Button border (dark)
+    const border = this.add.rectangle(0, 0, 200, 40, 0x222222);
+    
+    // Button face (main color)
+    const face = this.add.rectangle(0, 0, 196, 36, 0x4444aa);
+    
+    // Button highlight (top-left)
+    const highlight = this.add.rectangle(-2, -2, 196, 4, 0xffffff).setAlpha(0.3);
+    const highlightLeft = this.add.rectangle(-98, 0, 4, 36, 0xffffff).setAlpha(0.3);
+    
+    // Button text
+    const buttonText = this.add.text(0, 0, text, {
+      fontFamily: 'Arial',
+      fontSize: '16px',
+      fontStyle: 'bold',
+      fill: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 2
+    }).setOrigin(0.5);
+    
+    button.add([shadow, border, face, highlight, highlightLeft, buttonText]);
+    button.setSize(200, 40);
+    button.setInteractive({ useHandCursor: true });
+    
+    // Button press effect
+    button.on('pointerdown', () => {
+      button.setScale(0.95);
+    });
+    
+    button.on('pointerup', () => {
+      button.setScale(1);
+      if (callback) callback();
+    });
+    
+    // Hover effect
+    button.on('pointerover', () => {
+      face.setFillStyle(0x6666cc);
+      buttonText.setScale(1.05);
+    });
+    
+    button.on('pointerout', () => {
+      face.setFillStyle(0x4444aa);
+      buttonText.setScale(1);
+    });
+    
+    return button;
+  }
+  
+  // Create volume controls
+  createVolumeControls() {
+    // This method should create volume/mute controls
+    // For now, we'll use the existing mute button functionality
+    console.log('Volume controls created');
+  }
+  
+  // Create exit button
+  createExitButton() {
+    // This method should create an exit/close button
+    // For now, we'll use the existing close button functionality
+    console.log('Exit button created');
+  }
+  
+  // Show car selection screen
+  showCarSelection(mode = 'free_roam') {
+    this.clearMenuContent();
+    this.currentView = 'cars';
+    this.createMuteButton();
+    this.createCloseButton();
+    
+    // Initialize car index if not set
+    this.currentCarIndex = this.currentCarIndex || 0;
+    
+    // Dark overlay with scan lines
+    this.add.rectangle(0, 0, this.cameras.main.width, this.cameras.main.height, 0x000000).setOrigin(0).setAlpha(0.85);
+    
+    // Title with retro styling
+    this.add.text(this.cameras.main.width / 2, 60, 'SELECT YOUR VEHICLE', {
+      fontFamily: 'Courier New, monospace',
+      fontSize: '32px',
+      fontStyle: 'bold',
+      fill: '#00ff00',
+      stroke: '#000000',
+      strokeThickness: 3,
+      shadow: {
+        offsetX: 2,
+        offsetY: 2,
+        color: '#004400',
+        blur: 0,
+        stroke: false,
+        fill: true
       }
-      
-      // Keep persistent UI elements (mute button, close button)
-      if (child.text === '🔊' || child.text === '🔇' || child.text === '×') {
-        return;
+    }).setOrigin(0.5).setDepth(5);
+    
+    this.add.text(this.cameras.main.width / 2, 90, 'Choose your ride for the Bay Harbor streets', {
+      fontFamily: 'Courier New, monospace',
+      fontSize: '14px',
+      fill: '#cccccc',
+      stroke: '#000000',
+      strokeThickness: 1
+    }).setOrigin(0.5).setDepth(5);
+    
+    // Mode indicator
+    this.add.text(this.cameras.main.width / 2, 110, `MODE: ${mode === 'free_roam' ? 'FREE ROAM' : 'CHALLENGE'}`, {
+      fontFamily: 'Courier New, monospace',
+      fontSize: '14px',
+      fontStyle: 'bold',
+      fill: '#ffff00',
+      stroke: '#000000',
+      strokeThickness: 1
+    }).setOrigin(0.5).setDepth(5);
+    
+    // Car data with stats and character voices
+    const cars = [
+      {
+        key: 'van',
+        name: 'Dexter Morgan',
+        description: '"Tonight\'s the night, and it\'s going to happen again"',
+        voiceKey: 'dexter_voice',
+        speed: 2,
+        braking: 4,
+        weight: 5,
+        handling: 2
+      },
+      {
+        key: 'sports_convertible',
+        name: 'James Doakes',
+        description: '"Surprise, motherf***er!"',
+        voiceKey: 'doakes_voice',
+        speed: 5,
+        braking: 3,
+        weight: 2,
+        handling: 4
+      },
+      {
+        key: 'vintage',
+        name: 'Debra Morgan',
+        description: '"Holy f***ing s***, Dexter!"',
+        voiceKey: 'deb_voice',
+        speed: 3,
+        braking: 2,
+        weight: 4,
+        handling: 3
+      },
+      {
+        key: 'sedan_vintage',
+        name: 'Maria LaGuerta',
+        description: '"I know what you did last summer... I mean winter"',
+        voiceKey: 'laguerta_voice',
+        speed: 4,
+        braking: 4,
+        weight: 3,
+        handling: 5
+      },
+      {
+        key: 'formula',
+        name: 'Vince Masuka',
+        description: '"That\'s what she said! No seriously, forensics!"',
+        voiceKey: 'masuka_voice',
+        speed: 5,
+        braking: 5,
+        weight: 1,
+        handling: 5
       }
+    ];
+    
+    const currentCar = cars[this.currentCarIndex];
+    const selectedCar = localStorage.getItem('selectedCar') || 'van';
+    
+    // Car counter with retro styling
+    this.add.text(this.cameras.main.width / 2, 140, `VEHICLE ${this.currentCarIndex + 1} / ${cars.length}`, {
+      fontFamily: 'Courier New, monospace',
+      fontSize: '16px',
+      fontStyle: 'bold',
+      fill: '#ffff00',
+      stroke: '#000000',
+      strokeThickness: 1
+    }).setOrigin(0.5).setDepth(5);
+    
+    // Car showcase area
+    const showcaseY = 220;
+    
+    // Car image (large, centered)
+    const carImage = this.add.image(this.cameras.main.width / 2, showcaseY, currentCar.key);
+    carImage.setScale(4); // Large scale to showcase the car
+    carImage.setDepth(5);
+    
+    // Car name with retro styling
+    this.add.text(this.cameras.main.width / 2, showcaseY + 120, currentCar.name.toUpperCase(), {
+      fontFamily: 'Courier New, monospace',
+      fontSize: '24px',
+      fontStyle: 'bold',
+      fill: '#00ffff',
+      stroke: '#000000',
+      strokeThickness: 2
+    }).setOrigin(0.5).setDepth(5);
+    
+    // Car description
+    this.add.text(this.cameras.main.width / 2, showcaseY + 145, currentCar.description, {
+      fontFamily: 'Courier New, monospace',
+      fontSize: '14px',
+      fill: '#cccccc',
+      stroke: '#000000',
+      strokeThickness: 1
+    }).setOrigin(0.5).setDepth(5);
+    
+    // Stats display with retro styling
+    const statsY = showcaseY + 180;
+    const statSpacing = 100;
+    const totalStatsWidth = 3 * statSpacing; // 4 stats with 3 gaps between them
+    const statsStartX = (this.cameras.main.width - totalStatsWidth) / 2;
+    
+    const stats = [
+      { label: 'SPEED', value: currentCar.speed },
+      { label: 'BRAKE', value: currentCar.braking },
+      { label: 'WEIGHT', value: currentCar.weight },
+      { label: 'HANDLE', value: currentCar.handling }
+    ];
+    
+    stats.forEach((stat, index) => {
+      const statX = statsStartX + (index * statSpacing);
       
-      // Remove everything else (menu content)
-      if (child && child.destroy) {
-        child.destroy();
+      // Stat label with retro styling
+      this.add.text(statX, statsY, stat.label, {
+        fontFamily: 'Courier New, monospace',
+        fontSize: '12px',
+        fontStyle: 'bold',
+        fill: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 1
+      }).setOrigin(0.5).setDepth(5);
+      
+      // Star rating with retro colors
+      for (let i = 0; i < 5; i++) {
+        const starX = statX - 30 + (i * 15);
+        const starY = statsY + 25;
+        const isFilled = i < stat.value;
+        
+        this.add.text(starX, starY, '★', {
+          fontFamily: 'Courier New, monospace',
+          fontSize: '14px',
+          fill: isFilled ? '#ffff00' : '#444444',
+          stroke: '#000000',
+          strokeThickness: 1
+        }).setOrigin(0.5).setDepth(5);
       }
     });
+    
+    // Navigation arrows with retro Nintendo styling
+    if (this.currentCarIndex > 0) {
+      const leftArrow = this.add.container(this.cameras.main.width / 2 - 200, showcaseY);
+      
+      // Arrow background
+      const leftBg = this.add.rectangle(0, 0, 40, 40, 0x4444aa);
+      const leftBorder = this.add.rectangle(0, 0, 40, 40, 0x222222);
+      leftBorder.setStrokeStyle(2, 0x666666);
+      
+      // Arrow text
+      const leftText = this.add.text(0, 0, '◀', {
+        fontFamily: 'Courier New, monospace',
+        fontSize: '24px',
+        fontStyle: 'bold',
+        fill: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 1
+      }).setOrigin(0.5);
+      
+      leftArrow.add([leftBorder, leftBg, leftText]);
+      leftArrow.setSize(40, 40);
+      leftArrow.setInteractive({ useHandCursor: true });
+      leftArrow.setDepth(5);
+      
+      leftArrow.on('pointerdown', () => {
+        leftArrow.setScale(0.9);
+        this.currentCarIndex--;
+        this.showCarSelection(mode);
+      });
+      
+      leftArrow.on('pointerup', () => leftArrow.setScale(1));
+      leftArrow.on('pointerover', () => leftBg.setFillStyle(0x6666cc));
+      leftArrow.on('pointerout', () => leftBg.setFillStyle(0x4444aa));
+    }
+    
+    if (this.currentCarIndex < cars.length - 1) {
+      const rightArrow = this.add.container(this.cameras.main.width / 2 + 200, showcaseY);
+      
+      // Arrow background
+      const rightBg = this.add.rectangle(0, 0, 40, 40, 0x4444aa);
+      const rightBorder = this.add.rectangle(0, 0, 40, 40, 0x222222);
+      rightBorder.setStrokeStyle(2, 0x666666);
+      
+      // Arrow text
+      const rightText = this.add.text(0, 0, '▶', {
+        fontFamily: 'Courier New, monospace',
+        fontSize: '24px',
+        fontStyle: 'bold',
+        fill: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 1
+      }).setOrigin(0.5);
+      
+      rightArrow.add([rightBorder, rightBg, rightText]);
+      rightArrow.setSize(40, 40);
+      rightArrow.setInteractive({ useHandCursor: true });
+      rightArrow.setDepth(5);
+      
+      rightArrow.on('pointerdown', () => {
+        rightArrow.setScale(0.9);
+        this.currentCarIndex++;
+        this.showCarSelection(mode);
+      });
+      
+      rightArrow.on('pointerup', () => rightArrow.setScale(1));
+      rightArrow.on('pointerover', () => rightBg.setFillStyle(0x6666cc));
+      rightArrow.on('pointerout', () => rightBg.setFillStyle(0x4444aa));
+    }
+    
+    // Selection status
+    const isSelected = currentCar.key === selectedCar;
+    if (isSelected) {
+      this.add.text(this.cameras.main.width / 2, statsY + 60, '✓ CURRENTLY SELECTED', {
+        fontFamily: 'Courier New, monospace',
+        fontSize: '16px',
+        fontStyle: 'bold',
+        fill: '#00ff00',
+        stroke: '#000000',
+        strokeThickness: 2,
+        shadow: {
+          offsetX: 1,
+          offsetY: 1,
+          color: '#004400',
+          blur: 0,
+          stroke: false,
+          fill: true
+        }
+      }).setOrigin(0.5).setDepth(5);
+    }
+    
+    // Action buttons with retro Nintendo styling
+    const buttonY = statsY + 120;
+    
+    // Create retro-styled select button
+    const selectContainer = this.add.container(this.cameras.main.width / 2, buttonY);
+    
+    // Button shadow
+    const selectShadow = this.add.rectangle(3, 3, 220, 45, 0x000000).setAlpha(0.5);
+    
+    // Button border
+    const selectBorder = this.add.rectangle(0, 0, 220, 45, 0x222222);
+    
+    // Button face (different colors based on selection status)
+    const selectFace = this.add.rectangle(0, 0, 216, 41, isSelected ? 0x00aa00 : 0xaa0000);
+    
+    // Button highlights
+    const selectHighlight = this.add.rectangle(-2, -2, 216, 4, 0xffffff).setAlpha(0.3);
+    const selectHighlightLeft = this.add.rectangle(-108, 0, 4, 41, 0xffffff).setAlpha(0.3);
+    
+    // Button text
+    const selectText = this.add.text(0, 0, isSelected ? 'START WITH THIS CAR' : 'SELECT & START', {
+      fontFamily: 'Courier New, monospace',
+      fontSize: '14px',
+      fontStyle: 'bold',
+      fill: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 1
+    }).setOrigin(0.5);
+    
+    selectContainer.add([selectShadow, selectBorder, selectFace, selectHighlight, selectHighlightLeft, selectText]);
+    selectContainer.setSize(220, 45);
+    selectContainer.setInteractive({ useHandCursor: true });
+    selectContainer.setDepth(5);
+    
+    selectContainer.on('pointerdown', () => {
+      selectContainer.setScale(0.95);
+      // Save the selected car and start the game
+      localStorage.setItem('selectedCar', currentCar.key);
+      if (this.menuMusic) {
+        this.menuMusic.stop();
+      }
+      
+      // Pass mode and music state to MainScene
+      const sceneData = {
+        mode: mode,
+        selectedCar: currentCar.key,
+        musicState: this.receivedMusicState
+      };
+      
+      if (mode === 'challenge') {
+        // For challenge mode, include the challenge data
+        if (this.currentChallengeData) {
+          sceneData.challengeData = this.currentChallengeData;
+          console.log('🎮 Starting challenge mode with car:', currentCar.key, 'and challenge:', this.currentChallengeData.name);
+        }
+      }
+      
+      console.log('🎵 Passing data to MainScene:', sceneData);
+      this.scene.start('MainScene', sceneData);
+    });
+    
+    selectContainer.on('pointerup', () => selectContainer.setScale(1));
+    selectContainer.on('pointerover', () => {
+      selectFace.setFillStyle(isSelected ? 0x00cc00 : 0xcc0000);
+      selectText.setScale(1.05);
+    });
+    selectContainer.on('pointerout', () => {
+      selectFace.setFillStyle(isSelected ? 0x00aa00 : 0xaa0000);
+      selectText.setScale(1);
+    });
+    
+    // Back button
+    this.createBackButton();
+    
+    // Play character voice when car is displayed (only if index changed)
+    if (this.lastPlayedVoiceIndex !== this.currentCarIndex) {
+      this.playCharacterVoice(currentCar.voiceKey);
+      this.lastPlayedVoiceIndex = this.currentCarIndex;
+    }
+  }
+  
+  // Show controls screen
+  showControls() {
+    this.clearMenuContent();
+    
+    const centerX = this.cameras.main.width / 2;
+    const centerY = this.cameras.main.height / 2;
+    
+    // Title
+    const title = this.add.text(centerX, centerY - 250, 'CONTROLS', {
+      fontSize: '32px',
+      fill: '#ff6600',
+      fontFamily: 'Arial Black',
+      stroke: '#000000',
+      strokeThickness: 3
+    });
+    title.setOrigin(0.5);
+    
+    // Controls content
+    const controls = [
+      'WASD or Arrow Keys: Move vehicle',
+      'Space: Brake',
+      'Mouse: Click buttons',
+      'Touch: Mobile controls available'
+    ];
+    
+    controls.forEach((control, index) => {
+      const controlText = this.add.text(centerX, centerY - 150 + (index * 40), control, {
+        fontSize: '18px',
+        fill: '#cccccc',
+        fontFamily: 'Arial'
+      });
+      controlText.setOrigin(0.5);
+    });
+    
+    // Back button
+    const backBtn = this.createRetroButton(centerX, centerY + 200, 'BACK TO MAIN MENU', () => {
+      this.showMainMenu();
+    });
+    
+    this.currentMenu = 'controls';
+  }
+  
+  // Show rules screen
+  showRules() {
+    this.clearMenuContent();
+    
+    const centerX = this.cameras.main.width / 2;
+    const centerY = this.cameras.main.height / 2;
+    
+    // Title
+    const title = this.add.text(centerX, centerY - 250, 'RULES', {
+      fontSize: '32px',
+      fill: '#ff6600',
+      fontFamily: 'Arial Black',
+      stroke: '#000000',
+      strokeThickness: 3
+    });
+    title.setOrigin(0.5);
+    
+    // Rules content
+    const rules = [
+      'Collect blood slides for points',
+      'Avoid crashing into vehicles',
+      'Police cars will arrest you immediately',
+      'Ambulances restore lives',
+      'Build up wanted stars for multipliers'
+    ];
+    
+    rules.forEach((rule, index) => {
+      const ruleText = this.add.text(centerX, centerY - 150 + (index * 40), rule, {
+        fontSize: '18px',
+        fill: '#cccccc',
+        fontFamily: 'Arial'
+      });
+      ruleText.setOrigin(0.5);
+    });
+    
+    // Back button
+    const backBtn = this.createRetroButton(centerX, centerY + 200, 'BACK TO MAIN MENU', () => {
+      this.showMainMenu();
+    });
+    
+    this.currentMenu = 'rules';
   }
   
   // Play character voice line
@@ -1427,6 +1914,368 @@ export class MenuScene extends Phaser.Scene {
       
       nextButton.on('pointerover', () => nextButton.setScale(1.05));
       nextButton.on('pointerout', () => nextButton.setScale(1));
+    }
+  }
+
+  // Show challenge menu
+  showChallengeMenu() {
+    this.clearMenuContent();
+    
+    const centerX = this.cameras.main.width / 2;
+    const centerY = this.cameras.main.height / 2;
+    
+    // Title
+    const title = this.add.text(centerX, centerY - 250, 'CHALLENGE MODE', {
+      fontSize: '36px',
+      fill: '#ff6600',
+      fontFamily: 'Arial Black',
+      stroke: '#000000',
+      strokeThickness: 3
+    });
+    title.setOrigin(0.5);
+    
+    const subtitle = this.add.text(centerX, centerY - 210, 'Complete missions to unlock new content', {
+      fontSize: '18px',
+      fill: '#cccccc',
+      fontFamily: 'Arial'
+    });
+    subtitle.setOrigin(0.5);
+    
+    // Challenge levels
+    const challenges = [
+      {
+        id: 'level1',
+        name: 'First Blood',
+        description: 'Score 20 points and survive 1 minute',
+        difficulty: 'Beginner',
+        cars: ['Van'],
+        police: '0 stars',
+        reward: 'Unlock Sports Convertible',
+        bestRecord: this.getChallengeBestRecord('level1')
+      },
+      {
+        id: 'level2',
+        name: 'Street Racer',
+        description: 'Score 50 points and survive 2 minutes',
+        difficulty: 'Easy',
+        cars: ['Van', 'Sports Convertible'],
+        police: '1 star',
+        reward: 'Unlock Vintage car',
+        bestRecord: this.getChallengeBestRecord('level2')
+      },
+      {
+        id: 'level3',
+        name: 'Wanted Man',
+        description: 'Score 100 points and survive 3 minutes',
+        difficulty: 'Medium',
+        cars: ['Van', 'Sports', 'Vintage'],
+        police: '2 stars',
+        special: 'Don\'t crash for 2 minutes',
+        reward: 'Unlock Sedan Vintage',
+        bestRecord: this.getChallengeBestRecord('level3')
+      },
+      {
+        id: 'level4',
+        name: 'Highway Hell',
+        description: 'Score 200 points and survive 4 minutes',
+        difficulty: 'Hard',
+        cars: ['Van', 'Sports', 'Vintage', 'Sedan'],
+        police: '3 stars',
+        special: 'Maintain 3+ stars for 2 minutes',
+        reward: 'Unlock Formula car',
+        bestRecord: this.getChallengeBestRecord('level4')
+      },
+      {
+        id: 'level5',
+        name: 'Ultimate Gooner',
+        description: 'Score 500 points and survive 5 minutes',
+        difficulty: 'Expert',
+        cars: ['All Available'],
+        police: '4-5 stars',
+        special: 'Collect 10 potions without losing life',
+        reward: 'Special Achievement',
+        bestRecord: this.getChallengeBestRecord('level5')
+      }
+    ];
+    
+    // Display challenges
+    challenges.forEach((challenge, index) => {
+      const yPos = centerY - 150 + (index * 80);
+      
+      // Challenge container
+      const container = this.add.container(centerX, yPos);
+      
+      // Background
+      const bg = this.add.rectangle(0, 0, 600, 70, 0x333333);
+      bg.setStrokeStyle(2, 0x666666);
+      container.add(bg);
+      
+      // Challenge name
+      const nameText = this.add.text(-280, -25, challenge.name, {
+        fontSize: '20px',
+        fill: '#ff6600',
+        fontFamily: 'Arial Black'
+      });
+      container.add(nameText);
+      
+      // Difficulty badge
+      const difficultyColor = this.getDifficultyColor(challenge.difficulty);
+      const difficultyBg = this.add.rectangle(-200, -15, 80, 20, difficultyColor);
+      const difficultyText = this.add.text(-200, -15, challenge.difficulty, {
+        fontSize: '12px',
+        fill: '#ffffff',
+        fontFamily: 'Arial'
+      });
+      difficultyText.setOrigin(0.5);
+      container.add(difficultyBg);
+      container.add(difficultyText);
+      
+      // Description
+      const descText = this.add.text(-280, 5, challenge.description, {
+        fontSize: '14px',
+        fill: '#cccccc',
+        fontFamily: 'Arial'
+      });
+      container.add(descText);
+      
+      // Cars available
+      const carsText = this.add.text(-280, 25, `Cars: ${challenge.cars.join(', ')}`, {
+        fontSize: '12px',
+        fill: '#888888',
+        fontFamily: 'Arial'
+      });
+      container.add(carsText);
+      
+      // Best record
+      if (challenge.bestRecord) {
+        const recordText = this.add.text(200, 0, `Best: ${challenge.bestRecord}`, {
+          fontSize: '16px',
+          fill: '#00ff00',
+          fontFamily: 'Arial Black'
+        });
+        recordText.setOrigin(0.5);
+        container.add(recordText);
+      }
+      
+      // Make clickable
+      container.setSize(600, 70);
+      container.setInteractive({ useHandCursor: true });
+      container.on('pointerdown', () => {
+        this.startChallenge(challenge.id);
+      });
+      
+      // Hover effect
+      container.on('pointerover', () => {
+        bg.setFillStyle(0x444444);
+      });
+      container.on('pointerout', () => {
+        bg.setFillStyle(0x333333);
+      });
+    });
+    
+    // Back button
+    const backBtn = this.createRetroButton(centerX, centerY + 200, 'BACK TO MAIN MENU', () => {
+      this.showMainMenu();
+    });
+    
+    this.currentMenu = 'challenges';
+  }
+
+  getDifficultyColor(difficulty) {
+    switch (difficulty) {
+      case 'Beginner':
+        return 0x00ff00; // Green
+      case 'Easy':
+        return 0xffff00; // Yellow
+      case 'Medium':
+        return 0xff6600; // Orange
+      case 'Hard':
+        return 0xff0000; // Red
+      case 'Expert':
+        return 0x8800ff; // Purple
+      default:
+        return 0x666666; // Gray
+    }
+  }
+
+  startChallenge(challengeId) {
+    console.log(`Starting challenge: ${challengeId}`);
+    
+    // Get challenge data
+    const challengeData = this.getChallengeData(challengeId);
+    if (!challengeData) {
+      console.error(`Challenge ${challengeId} not found`);
+      return;
+    }
+    
+    // Show challenge info before starting
+    this.showChallengeInfo(challengeData);
+  }
+  
+  getChallengeData(challengeId) {
+    const challenges = {
+      level1: {
+        id: 'level1',
+        name: 'First Blood',
+        description: 'Score 20 points and survive 1 minute',
+        difficulty: 'Beginner',
+        cars: ['van'],
+        police: 0,
+        timeLimit: 60000, // 1 minute in milliseconds
+        scoreTarget: 20,
+        specialRules: [],
+        reward: 'Unlock Sports Convertible'
+      },
+      level2: {
+        id: 'level2',
+        name: 'Street Racer',
+        description: 'Score 50 points and survive 2 minutes',
+        difficulty: 'Easy',
+        cars: ['van', 'sports_convertible'],
+        police: 1,
+        timeLimit: 120000, // 2 minutes
+        scoreTarget: 50,
+        specialRules: [],
+        reward: 'Unlock Vintage car'
+      },
+      level3: {
+        id: 'level3',
+        name: 'Wanted Man',
+        description: 'Score 100 points and survive 3 minutes',
+        difficulty: 'Medium',
+        cars: ['van', 'sports_convertible', 'vintage'],
+        police: 2,
+        timeLimit: 180000, // 3 minutes
+        scoreTarget: 100,
+        specialRules: ['no_crash_2min'],
+        reward: 'Unlock Sedan Vintage'
+      },
+      level4: {
+        id: 'level4',
+        name: 'Highway Hell',
+        description: 'Score 200 points and survive 4 minutes',
+        difficulty: 'Hard',
+        cars: ['van', 'sports_convertible', 'vintage', 'sedan_vintage'],
+        police: 3,
+        timeLimit: 240000, // 4 minutes
+        scoreTarget: 200,
+        specialRules: ['maintain_3stars_2min'],
+        reward: 'Unlock Formula car'
+      },
+      level5: {
+        id: 'level5',
+        name: 'Ultimate Gooner',
+        description: 'Score 500 points and survive 5 minutes',
+        difficulty: 'Expert',
+        cars: ['van', 'sports_convertible', 'vintage', 'sedan_vintage', 'formula'],
+        police: 4,
+        timeLimit: 300000, // 5 minutes
+        scoreTarget: 500,
+        specialRules: ['collect_10_potions_no_death'],
+        reward: 'Special Achievement'
+      }
+    };
+    
+    return challenges[challengeId];
+  }
+  
+  showChallengeInfo(challengeData) {
+    this.clearMenuContent();
+    
+    const centerX = this.cameras.main.width / 2;
+    const centerY = this.cameras.main.height / 2;
+    
+    // Challenge title
+    const title = this.add.text(centerX, centerY - 200, challengeData.name, {
+      fontSize: '32px',
+      fill: '#ff6600',
+      fontFamily: 'Arial Black',
+      stroke: '#000000',
+      strokeThickness: 3
+    });
+    title.setOrigin(0.5);
+    
+    // Difficulty badge
+    const difficultyColor = this.getDifficultyColor(challengeData.difficulty);
+    const difficultyBg = this.add.rectangle(centerX + 100, centerY - 200, 100, 30, difficultyColor);
+    const difficultyText = this.add.text(centerX + 100, centerY - 200, challengeData.difficulty, {
+      fontSize: '14px',
+      fill: '#ffffff',
+      fontFamily: 'Arial'
+    });
+    difficultyText.setOrigin(0.5);
+    
+    // Challenge details
+    const details = [
+      `Objective: Score ${challengeData.scoreTarget} points and survive ${challengeData.timeLimit / 60000} minute(s)`,
+      `Available Cars: ${challengeData.cars.join(', ')}`,
+      `Police Level: ${challengeData.police} star(s)`,
+      `Reward: ${challengeData.reward}`
+    ];
+    
+    if (challengeData.specialRules.length > 0) {
+      details.push(`Special Rules: ${this.formatSpecialRules(challengeData.specialRules)}`);
+    }
+    
+    details.forEach((detail, index) => {
+      const detailText = this.add.text(centerX, centerY - 120 + (index * 30), detail, {
+        fontSize: '16px',
+        fill: '#cccccc',
+        fontFamily: 'Arial'
+      });
+      detailText.setOrigin(0.5);
+    });
+    
+    // Start button
+    const startBtn = this.createRetroButton(centerX, centerY + 50, 'START CHALLENGE', () => {
+      this.launchChallenge(challengeData);
+    });
+    
+    // Back button
+    const backBtn = this.createRetroButton(centerX, centerY + 120, 'BACK TO CHALLENGES', () => {
+      this.showChallengeMenu();
+    });
+    
+    this.currentMenu = 'challenge_info';
+  }
+  
+  formatSpecialRules(rules) {
+    const ruleDescriptions = {
+      'no_crash_2min': 'Don\'t crash with any vehicle for 2 minutes',
+      'maintain_3stars_2min': 'Maintain 3+ stars for at least 2 minutes',
+      'collect_10_potions_no_death': 'Collect 10 potions without losing a life'
+    };
+    
+    return rules.map(rule => ruleDescriptions[rule] || rule).join(', ');
+  }
+  
+  launchChallenge(challengeData) {
+    console.log('Launching challenge with data:', challengeData);
+    
+    // For challenge mode, we need to go to car selection first
+    // The challenge data will be stored and used when a car is selected
+    this.currentChallengeData = challengeData;
+    
+    // Go to car selection with challenge mode
+    this.showCarSelection('challenge');
+  }
+
+  getChallengeBestRecord(challengeId) {
+    // In a real game, you would load the best record from localStorage or a database
+    // For now, return a placeholder
+    switch (challengeId) {
+      case 'level1':
+        return '1:30';
+      case 'level2':
+        return '2:15';
+      case 'level3':
+        return '3:00';
+      case 'level4':
+        return '4:30';
+      case 'level5':
+        return '5:00';
+      default:
+        return 'N/A';
     }
   }
 } 
