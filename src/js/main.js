@@ -88,6 +88,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       console.warn('⚠️ Play With Yourself button not found in HTML');
     }
     
+    // Make the leaderboard button from HTML functional
+    const leaderboardBtn = document.getElementById('leaderboard-button');
+    if (leaderboardBtn) {
+      leaderboardBtn.addEventListener('click', () => {
+        console.log('🏆 Leaderboard button clicked - opening scores');
+        showLeaderboard();
+      });
+      console.log('✅ Leaderboard button made functional');
+    } else {
+      console.warn('⚠️ Leaderboard button not found in HTML');
+    }
+    
     // Create music toggle button
     const musicButton = document.createElement('button');
     musicButton.innerHTML = '🎵';
@@ -144,44 +156,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.body.appendChild(musicButton);
     console.log('✅ Functional music button added');
     
-    // Create leaderboard button
-    const leaderboardButton = document.createElement('button');
-    leaderboardButton.innerHTML = '🏆 SCORES';
-    leaderboardButton.id = 'leaderboard-button';
-    leaderboardButton.style.cssText = `
-      position: fixed;
-      top: 20px;
-      left: 20px;
-      background: #dc2626;
-      color: white;
-      border: none;
-      padding: 15px 25px;
-      border-radius: 25px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      z-index: 99999;
-      box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
-      transition: all 0.3s ease;
-    `;
-    
-    leaderboardButton.addEventListener('mouseenter', () => {
-      leaderboardButton.style.transform = 'translateY(-2px)';
-      leaderboardButton.style.boxShadow = '0 6px 20px rgba(220, 38, 38, 0.4)';
-    });
-    
-    leaderboardButton.addEventListener('mouseleave', () => {
-      leaderboardButton.style.transform = 'translateY(0)';
-      leaderboardButton.style.boxShadow = '0 4px 15px rgba(220, 38, 38, 0.3)';
-    });
-    
-    leaderboardButton.addEventListener('click', () => {
-      showLeaderboard();
-    });
-    
-    document.body.appendChild(leaderboardButton);
-    console.log('✅ Functional leaderboard button added');
-    
     // Add responsive behavior
     const updateButtonPositions = () => {
       const isMobile = window.innerWidth < 768;
@@ -190,19 +164,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         musicButton.style.bottom = 'auto';
         musicButton.style.top = '80px';
         musicButton.style.right = '20px';
-        
-        // Move leaderboard to top-left
-        leaderboardButton.style.top = '20px';
-        leaderboardButton.style.left = '20px';
       } else {
         // On desktop, keep music at bottom-right
         musicButton.style.top = 'auto';
         musicButton.style.bottom = '20px';
         musicButton.style.right = '20px';
-        
-        // Keep leaderboard at top-left
-        leaderboardButton.style.top = '20px';
-        leaderboardButton.style.left = '20px';
       }
     };
     
