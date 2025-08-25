@@ -1,6 +1,9 @@
 // Main Scene - Core gameplay
 import Phaser from 'phaser';
 
+// Global music instance tracker to prevent duplicates
+let globalMusicInstance = null;
+
 export class MainScene extends Phaser.Scene {
   constructor() {
     super('MainScene');
@@ -98,6 +101,20 @@ export class MainScene extends Phaser.Scene {
     // Reset game state to ensure clean start
     this.resetGameState();
     
+    // Auto-enter fullscreen on mobile for better gaming experience
+    if (this.isMobile && !this.isFullscreen()) {
+      this.time.delayedCall(1000, () => {
+        this.autoEnterFullscreen();
+      });
+    }
+    
+    // Auto-rotate to landscape orientation on mobile
+    if (this.isMobile) {
+      this.time.delayedCall(500, () => {
+        this.autoRotateToLandscape();
+      });
+    }
+    
     // Check if this is a restart and we have music state to restore
     if (data && data.musicState) {
       console.log('🎵 Restoring music state from previous game');
@@ -181,13 +198,18 @@ export class MainScene extends Phaser.Scene {
         if (mainAudio && !mainAudio.paused) {
           console.log('🎵 Main player is playing, not starting game music');
         } else {
-          // Main player not playing, start with Double Life Gooner
-          const doubleLifeIndex = this.playlist.findIndex(track => track.key === 'theme');
-          if (doubleLifeIndex !== -1) {
-            this.currentTrack = doubleLifeIndex;
+          // Check if game music is already playing to prevent duplicates
+          if (this.music && this.music.isPlaying) {
+            console.log('🎵 Game music already playing, not starting duplicate');
+          } else {
+            // Main player not playing, start with Double Life Gooner
+            const doubleLifeIndex = this.playlist.findIndex(track => track.key === 'theme');
+            if (doubleLifeIndex !== -1) {
+              this.currentTrack = doubleLifeIndex;
+            }
+            this.playCurrentTrack();
+            console.log('🎵 Main player not playing, starting game music');
           }
-          this.playCurrentTrack();
-          console.log('🎵 Main player not playing, starting game music');
         }
       }
     }
@@ -369,9 +391,27 @@ export class MainScene extends Phaser.Scene {
   
   // Play current track
   playCurrentTrack() {
+    // Stop any existing music first
     if (this.music) {
       this.music.stop();
+      this.music.destroy();
+      this.music = null;
     }
+    
+    // Stop global music instance if it exists
+    if (globalMusicInstance && globalMusicInstance !== this.music) {
+      globalMusicInstance.stop();
+      globalMusicInstance.destroy();
+      globalMusicInstance = null;
+    }
+    
+    // Also stop any other music that might be playing in the scene
+    this.sound.getAllPlaying().forEach(sound => {
+      if (sound.key !== 'car_ambience') { // Don't stop car ambience
+        sound.stop();
+        sound.destroy();
+      }
+    });
     
     if (this.playlist.length === 0) {
       console.log('🔇 No music tracks available');
@@ -387,6 +427,9 @@ export class MainScene extends Phaser.Scene {
         preservesPitch: true,
         rate: 1.0
       });
+      
+      // Set as global instance
+      globalMusicInstance = this.music;
       
       // Handle tab visibility changes to prevent music stopping
       this.music.on('pause', () => {
@@ -841,62 +884,14 @@ export class MainScene extends Phaser.Scene {
     this.updateSongDisplay();
   }
   
-  // Create mobile touch controls in footer area
+  // Create mobile touch controls if on mobile
   createMobileControls() {
     if (!this.isMobile) return;
     
-    const width = this.cameras.main.width;
-    const height = this.cameras.main.height;
+    const { width, height } = this.cameras.main;
     
-    // Move controls higher up to avoid browser navigation bar
-    const controlY = height * 0.85; // Moved from 0.92 to 0.85 (higher up)
-    
-    // Position mobile controls - center
-    const controlSize = 45;
-    const controlSpacing = 60;
-    const centerX = width / 2;
-    
-    // Create control background
-    this.add.rectangle(centerX, controlY, 200, 80, 0x000000, 0.7)
-      .setStrokeStyle(2, 0xffffff, 0.5)
-      .setDepth(14);
-    
-    // Create arrow buttons in cross formation
-    const upArrow = this.add.text(centerX, controlY - 25, '↑', {
-      font: 'bold 28px Arial',
-      fill: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 2,
-      backgroundColor: '#dc2626',
-      padding: { x: 12, y: 8 }
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(15);
-    
-    const downArrow = this.add.text(centerX, controlY + 25, '↓', {
-      font: 'bold 28px Arial',
-      fill: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 2,
-      backgroundColor: '#dc2626',
-      padding: { x: 12, y: 8 }
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(15);
-    
-    const leftArrow = this.add.text(centerX - 35, controlY, '←', {
-      font: 'bold 28px Arial',
-      fill: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 2,
-      backgroundColor: '#dc2626',
-      padding: { x: 12, y: 8 }
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(15);
-    
-    const rightArrow = this.add.text(centerX + 35, controlY, '→', {
-      font: 'bold 28px Arial',
-      fill: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 2,
-      backgroundColor: '#dc2626',
-      padding: { x: 12, y: 8 }
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(15);
+    // Create circular joystick control
+    this.createCircularJoystick(width, height);
     
     // Add fullscreen button for mobile
     const fullscreenBtn = this.add.text(width - 60, 40, '⛶', {
@@ -910,77 +905,13 @@ export class MainScene extends Phaser.Scene {
     
     // Store references
     this.mobileControls = {
-      up: upArrow,
-      down: downArrow,
-      left: leftArrow,
-      right: rightArrow,
+      joystick: this.joystick,
       fullscreen: fullscreenBtn
     };
-    
-    // Touch event handlers with visual feedback
-    upArrow.on('pointerdown', () => { 
-      this.mobileInput.up = true; 
-      upArrow.setStyle({ backgroundColor: '#991b1b' });
-    });
-    upArrow.on('pointerup', () => { 
-      this.mobileInput.up = false; 
-      upArrow.setStyle({ backgroundColor: '#dc2626' });
-    });
-    upArrow.on('pointerout', () => { 
-      this.mobileInput.up = false; 
-      upArrow.setStyle({ backgroundColor: '#dc2626' });
-    });
-    
-    downArrow.on('pointerdown', () => { 
-      this.mobileInput.down = true; 
-      downArrow.setStyle({ backgroundColor: '#991b1b' });
-    });
-    downArrow.on('pointerup', () => { 
-      this.mobileInput.down = false; 
-      downArrow.setStyle({ backgroundColor: '#dc2626' });
-    });
-    downArrow.on('pointerout', () => { 
-      this.mobileInput.down = false; 
-      downArrow.setStyle({ backgroundColor: '#dc2626' });
-    });
-    
-    leftArrow.on('pointerdown', () => { 
-      this.mobileInput.left = true; 
-      leftArrow.setStyle({ backgroundColor: '#991b1b' });
-    });
-    leftArrow.on('pointerup', () => { 
-      this.mobileInput.left = false; 
-      leftArrow.setStyle({ backgroundColor: '#dc2626' });
-    });
-    leftArrow.on('pointerout', () => { 
-      this.mobileInput.left = false; 
-      leftArrow.setStyle({ backgroundColor: '#dc2626' });
-    });
-    
-    rightArrow.on('pointerdown', () => { 
-      this.mobileInput.right = true; 
-      rightArrow.setStyle({ backgroundColor: '#991b1b' });
-    });
-    rightArrow.on('pointerup', () => { 
-      this.mobileInput.right = false; 
-      rightArrow.setStyle({ backgroundColor: '#dc2626' });
-    });
-    rightArrow.on('pointerout', () => { 
-      this.mobileInput.right = false; 
-      rightArrow.setStyle({ backgroundColor: '#dc2626' });
-    });
     
     fullscreenBtn.on('pointerdown', () => {
       this.toggleFullscreen();
     });
-    
-    // Initialize mobile input state
-    this.mobileInput = {
-      up: false,
-      down: false,
-      left: false,
-      right: false
-    };
     
     // Add fullscreen change event listener
     this.fullscreenChangeHandler = () => {
@@ -993,7 +924,234 @@ export class MainScene extends Phaser.Scene {
     // Update fullscreen button appearance
     this.updateFullscreenButton();
     
-    console.log('📱 Mobile controls created');
+    console.log('📱 Mobile circular joystick controls created');
+  }
+  
+  // Create circular joystick control system
+  createCircularJoystick(width, height) {
+    const joystickRadius = 60;
+    
+    // Position joystick for landscape orientation - left side, centered vertically
+    const joystickX = joystickRadius + 40; // Left side, 40px from edge
+    const joystickY = height / 2; // Center vertically for landscape
+    
+    // Create joystick background (outer circle)
+    const joystickBg = this.add.circle(joystickRadius + 40, height / 2, joystickRadius, 0x000000, 0.7)
+      .setStrokeStyle(3, 0xffffff, 0.8)
+      .setDepth(14);
+    
+    // Create joystick handle (inner circle)
+    const joystickHandle = this.add.circle(joystickRadius + 40, height / 2, joystickRadius * 0.4, 0xdc2626, 0.9)
+      .setStrokeStyle(2, 0xffffff, 1)
+      .setDepth(15);
+    
+    // Create directional indicators
+    const indicatorSize = 8;
+    const indicatorColor = 0x3b82f6;
+    
+    // Up indicator
+    this.add.circle(joystickX, joystickY - joystickRadius * 0.7, indicatorSize, indicatorColor, 0.6)
+      .setDepth(14);
+    
+    // Down indicator
+    this.add.circle(joystickX, joystickY + joystickRadius * 0.7, indicatorSize, indicatorColor, 0.6)
+      .setDepth(14);
+    
+    // Left indicator
+    this.add.circle(joystickX - joystickRadius * 0.7, joystickY, indicatorSize, indicatorColor, 0.6)
+      .setDepth(14);
+    
+    // Right indicator
+    this.add.circle(joystickX + joystickRadius * 0.7, joystickY, indicatorSize, indicatorColor, 0.6)
+      .setDepth(14);
+    
+    // Create invisible larger interactive area to prevent accidental releases
+    const interactiveRadius = joystickRadius + 20; // 20px larger than visual
+    const interactiveArea = this.add.circle(joystickX, joystickY, interactiveRadius, 0x000000, 0)
+      .setDepth(13); // Below other elements but interactive
+    
+    // Store joystick reference
+    this.joystick = {
+      background: joystickBg,
+      handle: joystickHandle,
+      interactiveArea: interactiveArea,
+      x: joystickX,
+      y: joystickY,
+      radius: joystickRadius,
+      interactiveRadius: interactiveRadius,
+      isActive: false,
+      touchId: null, // Track specific touch
+      startX: 0,
+      startY: 0,
+      currentX: 0,
+      currentY: 0
+    };
+    
+    // Initialize mobile input state
+    this.mobileInput = {
+      up: false,
+      down: false,
+      left: false,
+      right: false,
+      joystickX: 0,
+      joystickY: 0
+    };
+    
+    // Add touch event handlers
+    this.setupJoystickEvents();
+  }
+  
+  // Setup joystick touch events
+  setupJoystickEvents() {
+    const joystick = this.joystick;
+    
+    // Use the larger interactive area for all touch events
+    joystick.interactiveArea.setInteractive({ useHandCursor: true });
+    
+    // Touch start
+    joystick.interactiveArea.on('pointerdown', (pointer) => {
+      joystick.isActive = true;
+      joystick.touchId = pointer.id;
+      joystick.startX = pointer.x;
+      joystick.startY = pointer.y;
+      joystick.currentX = joystick.x;
+      joystick.currentY = joystick.y;
+      
+      // Visual feedback
+      joystick.background.setFillStyle(0x1f2937, 0.9);
+      joystick.handle.setFillStyle(0x991b1b, 0.9);
+      
+      console.log('🎮 Joystick activated with touch ID:', pointer.id);
+    });
+    
+    // Touch move
+    joystick.interactiveArea.on('pointermove', (pointer) => {
+      if (!joystick.isActive || joystick.touchId !== pointer.id) return;
+      
+      const deltaX = pointer.x - joystick.x;
+      const deltaY = pointer.y - joystick.y;
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      
+      // Limit handle movement to joystick radius
+      if (distance <= joystick.radius) {
+        joystick.currentX = pointer.x;
+        joystick.currentY = pointer.y;
+      } else {
+        // Normalize to radius
+        const angle = Math.atan2(deltaY, deltaX);
+        joystick.currentX = joystick.x + Math.cos(angle) * joystick.radius;
+        joystick.currentY = joystick.y + Math.sin(angle) * joystick.radius;
+      }
+      
+      // Update handle position
+      joystick.handle.setPosition(joystick.currentX, joystick.currentY);
+      
+      // Calculate input values (-1 to 1)
+      const inputX = (joystick.currentX - joystick.x) / joystick.radius;
+      const inputY = (joystick.currentY - joystick.y) / joystick.radius;
+      
+      // Update mobile input state
+      this.mobileInput.joystickX = inputX;
+      this.mobileInput.joystickY = inputY;
+      
+      // Convert to directional input
+      this.mobileInput.left = inputX < -0.3;
+      this.mobileInput.right = inputX > 0.3;
+      this.mobileInput.up = inputY < -0.3;
+      this.mobileInput.down = inputY > 0.3;
+    });
+    
+    // Touch end - only release when actually lifted
+    joystick.interactiveArea.on('pointerup', (pointer) => {
+      if (joystick.isActive && joystick.touchId === pointer.id) {
+        console.log('🎮 Joystick released (pointerup) for touch ID:', pointer.id);
+        this.resetJoystick();
+      }
+    });
+    
+    // Touch end - handle when finger leaves the joystick area
+    joystick.interactiveArea.on('pointerout', (pointer) => {
+      // Don't reset immediately on pointerout - only if we're not tracking
+      if (joystick.isActive && joystick.touchId === pointer.id && !pointer.isDown) {
+        console.log('🎮 Joystick released (pointerout + not down) for touch ID:', pointer.id);
+        this.resetJoystick();
+      }
+    });
+    
+    // Add global touch end listener to catch any missed releases
+    this.input.on('pointerup', (pointer) => {
+      if (joystick.isActive && joystick.touchId === pointer.id && !pointer.isDown) {
+        console.log('🎮 Joystick released (global pointerup) for touch ID:', pointer.id);
+        this.resetJoystick();
+      }
+    });
+    
+    // Add global touch move listener to maintain tracking even outside bounds
+    this.input.on('pointermove', (pointer) => {
+      if (joystick.isActive && joystick.touchId === pointer.id && pointer.isDown) {
+        // Continue tracking even if finger moves outside joystick area
+        const deltaX = pointer.x - joystick.x;
+        const deltaY = pointer.y - joystick.y;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        // Limit handle movement to joystick radius
+        if (distance <= joystick.radius) {
+          joystick.currentX = pointer.x;
+          joystick.currentY = pointer.y;
+        } else {
+          // Normalize to radius
+          const angle = Math.atan2(deltaY, deltaX);
+          joystick.currentX = joystick.x + Math.cos(angle) * joystick.radius;
+          joystick.currentY = joystick.y + Math.sin(angle) * joystick.radius;
+        }
+        
+        // Update handle position
+        joystick.handle.setPosition(joystick.currentX, joystick.currentY);
+        
+        // Calculate input values (-1 to 1)
+        const inputX = (joystick.currentX - joystick.x) / joystick.radius;
+        const inputY = (joystick.currentY - joystick.y) / joystick.radius;
+        
+        // Update mobile input state
+        this.mobileInput.joystickX = inputX;
+        this.mobileInput.joystickY = inputY;
+        
+        // Convert to directional input
+        this.mobileInput.left = inputX < -0.3;
+        this.mobileInput.right = inputX > 0.3;
+        this.mobileInput.up = inputY < -0.3;
+        this.mobileInput.down = inputY > 0.3;
+      }
+    });
+  }
+  
+  // Reset joystick to center position
+  resetJoystick() {
+    const joystick = this.joystick;
+    if (!joystick) return;
+    
+    // Add a small delay to prevent accidental releases during quick movements
+    this.time.delayedCall(50, () => {
+      if (joystick && joystick.isActive) {
+        joystick.isActive = false;
+        joystick.touchId = null; // Clear touch ID
+        joystick.handle.setPosition(joystick.x, joystick.y);
+        
+        // Reset visual appearance
+        joystick.background.setFillStyle(0x000000, 0.7);
+        joystick.handle.setFillStyle(0xdc2626, 0.9);
+        
+        // Reset input state
+        this.mobileInput.joystickX = 0;
+        this.mobileInput.joystickY = 0;
+        this.mobileInput.left = false;
+        this.mobileInput.right = false;
+        this.mobileInput.up = false;
+        this.mobileInput.down = false;
+        
+        console.log('🎮 Joystick reset completed');
+      }
+    });
   }
   
   // Update fullscreen button appearance
@@ -1696,11 +1854,32 @@ export class MainScene extends Phaser.Scene {
     // Get car-specific momentum based on selected vehicle
     const momentumFactor = this.getCarMomentumFactor();
     
-    // Horizontal movement with momentum
-    if (cursors.left.isDown) {
-      this.player.body.setVelocityX(-maxSpeed);
-    } else if (cursors.right.isDown) {
-      this.player.body.setVelocityX(maxSpeed);
+    // Check both keyboard and mobile input
+    const isLeftPressed = cursors.left.isDown || (this.mobileInput && this.mobileInput.left);
+    const isRightPressed = cursors.right.isDown || (this.mobileInput && this.mobileInput.right);
+    const isUpPressed = cursors.up.isDown || (this.mobileInput && this.mobileInput.up);
+    const isDownPressed = cursors.down.isDown || (this.mobileInput && this.mobileInput.down);
+    
+    // Use joystick input for smoother movement on mobile
+    let targetVelX = 0;
+    let targetVelY = 0;
+    
+    if (this.mobileInput && (this.mobileInput.joystickX !== 0 || this.mobileInput.joystickY !== 0)) {
+      // Use joystick input for smooth movement
+      targetVelX = this.mobileInput.joystickX * maxSpeed;
+      targetVelY = this.mobileInput.joystickY * maxSpeed;
+    } else {
+      // Use digital input (keyboard or touch buttons)
+      if (isLeftPressed) targetVelX = -maxSpeed;
+      else if (isRightPressed) targetVelX = maxSpeed;
+      
+      if (isUpPressed) targetVelY = -maxSpeed;
+      else if (isDownPressed) targetVelY = maxSpeed;
+    }
+    
+    // Apply movement with momentum
+    if (targetVelX !== 0) {
+      this.player.body.setVelocityX(targetVelX);
     } else {
       // Apply momentum/deceleration when no key is pressed
       if (Math.abs(currentVelX) > 0) {
@@ -1715,11 +1894,8 @@ export class MainScene extends Phaser.Scene {
       }
     }
     
-    // Vertical movement with momentum
-    if (cursors.up.isDown) {
-      this.player.body.setVelocityY(-maxSpeed);
-    } else if (cursors.down.isDown) {
-      this.player.body.setVelocityY(maxSpeed);
+    if (targetVelY !== 0) {
+      this.player.body.setVelocityY(targetVelY);
     } else {
       // Apply momentum/deceleration when no key is pressed
       if (Math.abs(currentVelY) > 0) {
@@ -2880,6 +3056,101 @@ export class MainScene extends Phaser.Scene {
       console.log(`✨ Added fallback police glow effect`);
     } catch (error) {
       console.log(`⚠️ Error applying fallback police glow:`, error);
+    }
+  }
+  
+  // Clean up method to stop all music
+  cleanup() {
+    console.log('🧹 Cleaning up MainScene music...');
+    
+    // Stop and destroy main music
+    if (this.music) {
+      this.music.stop();
+      this.music.destroy();
+      this.music = null;
+    }
+    
+    // Clear global music instance if it's this scene's music
+    if (globalMusicInstance === this.music) {
+      globalMusicInstance = null;
+    }
+    
+    // Stop and destroy car ambience
+    if (this.carAmbience) {
+      this.carAmbience.stop();
+      this.carAmbience.destroy();
+      this.carAmbience = null;
+    }
+    
+    // Stop all other sounds in the scene
+    this.sound.getAllPlaying().forEach(sound => {
+      sound.stop();
+      sound.destroy();
+    });
+    
+    console.log('✅ MainScene music cleanup completed');
+  }
+  
+  // Override scene shutdown to ensure cleanup
+  shutdown() {
+    console.log('🔄 MainScene shutting down...');
+    this.cleanup();
+    super.shutdown();
+  }
+
+  // Auto-enter fullscreen for mobile devices
+  autoEnterFullscreen() {
+    if (!this.isMobile) return;
+    
+    try {
+      if (!document.fullscreenElement) {
+        // Enter fullscreen
+        if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen();
+        } else if (document.documentElement.webkitRequestFullscreen) {
+          document.documentElement.webkitRequestFullscreen();
+        } else if (document.documentElement.msRequestFullscreen) {
+          document.documentElement.msRequestFullscreen();
+        }
+        console.log('📱 Entering fullscreen mode');
+      }
+    } catch (error) {
+      console.warn('📱 Auto-fullscreen not supported or blocked:', error);
+    }
+  }
+
+  // Auto-rotate to landscape orientation for mobile devices
+  autoRotateToLandscape() {
+    if (!this.isMobile) return;
+    
+    try {
+      // Check if Screen Orientation API is available
+      if (screen.orientation && screen.orientation.lock) {
+        // Try to lock to landscape
+        screen.orientation.lock('landscape').then(() => {
+          console.log('📱 Screen locked to landscape orientation');
+        }).catch((error) => {
+          console.log('📱 Could not lock orientation, but will request landscape:', error);
+          // Fallback: request landscape without locking
+          if (screen.orientation && screen.orientation.orientation) {
+            if (screen.orientation.orientation.includes('portrait')) {
+              console.log('📱 Requesting landscape orientation (fallback)');
+            }
+          }
+        });
+      } else if (screen.orientation && screen.orientation.orientation) {
+        // Fallback for older devices
+        if (screen.orientation.orientation.includes('portrait')) {
+          console.log('📱 Requesting landscape orientation (legacy fallback)');
+        }
+      }
+      
+      // Also try to request fullscreen for better landscape experience
+      if (!this.isFullscreen()) {
+        this.autoEnterFullscreen();
+      }
+    } catch (error) {
+      console.warn('📱 Auto-rotation not supported or blocked:', error);
     }
   }
 }

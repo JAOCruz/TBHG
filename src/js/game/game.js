@@ -16,8 +16,10 @@ const config = {
   backgroundColor: '#000000',
   pixelArt: false,
   scale: {
-    mode: isMobile ? Phaser.Scale.RESIZE : Phaser.Scale.NONE,
-    autoCenter: Phaser.Scale.CENTER_BOTH
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    width: 1200,
+    height: 700
   },
   physics: {
     default: 'arcade',
@@ -54,18 +56,25 @@ export class BayHarborGame {
         justify-content: ${isMobile ? 'stretch' : 'center'};
         background-color: rgba(17, 24, 39, 0.95);
         z-index: 9999;
+        ${isMobile ? 'width: 100vw; height: 100vh;' : ''}
+        ${isMobile ? 'overflow: hidden;' : ''}
+        ${isMobile ? 'touch-action: none;' : ''}
       `;
       
       // Create game wrapper for proper centering
       const gameWrapper = document.createElement('div');
       gameWrapper.style.cssText = `
         position: relative;
-        width: ${isMobile ? '100vw' : '1200px'};
-        height: ${isMobile ? '100vh' : '700px'};
+        width: ${isMobile ? '100%' : '1200px'};
+        height: ${isMobile ? '100%' : '700px'};
         background-color: #000000;
         border-radius: ${isMobile ? '0' : '8px'};
         box-shadow: ${isMobile ? 'none' : '0 25px 50px -12px rgba(0, 0, 0, 0.25)'};
         overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        ${isMobile ? 'width: 100vw; height: 100vh;' : ''}
       `;
       
       // Create game canvas container
@@ -75,6 +84,9 @@ export class BayHarborGame {
         width: 100%;
         height: 100%;
         position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       `;
       
       // Close button
@@ -131,10 +143,21 @@ export class BayHarborGame {
 
   close() {
     if (this.game) {
+      // Stop all music in all scenes
+      this.game.scene.scenes.forEach(scene => {
+        if (scene.cleanup && typeof scene.cleanup === 'function') {
+          scene.cleanup();
+        } else if (scene.music) {
+          scene.music.stop();
+          scene.music.destroy();
+        }
+      });
+      
       // Stop any music playing in the current scene
       const currentScene = this.game.scene.scenes.find(scene => scene.scene.isActive());
       if (currentScene && currentScene.music) {
         currentScene.music.stop();
+        currentScene.music.destroy();
       }
       
       this.game.destroy(true);

@@ -67,51 +67,26 @@ async function showLeaderboard() {
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('🔪 MAIN.JS: DOM Content Loaded');
   
-  // Auto-load the music player when page loads
-  console.log('🎵 Auto-loading Bay Harbor Gooner music player with lyrics...');
-  await initAudioPlayer();
+  // Auto-load the music player when page loads - DISABLED to remove distracting playlist
+  // console.log('🎵 Auto-loading Bay Harbor Gooner music player with lyrics...');
+  // await initAudioPlayer();
   
   // Create buttons after a short delay
   setTimeout(() => {
     console.log('🎮 Creating functional buttons...');
     
-    // Create PLAY button that actually launches the game
-    const playButton = document.createElement('button');
-    playButton.innerHTML = '🎮 PLAY GAME';
-    playButton.id = 'play-game-button';
-    playButton.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: #dc2626;
-      color: white;
-      border: none;
-      padding: 15px 25px;
-      border-radius: 25px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      z-index: 99999;
-      box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
-      transition: all 0.3s ease;
-    `;
-    
-    playButton.addEventListener('mouseenter', () => {
-      playButton.style.transform = 'translateY(-2px)';
-      playButton.style.boxShadow = '0 6px 20px rgba(220, 38, 38, 0.4)';
-    });
-    
-    playButton.addEventListener('mouseleave', () => {
-      playButton.style.transform = 'translateY(0)';
-      playButton.style.boxShadow = '0 4px 15px rgba(220, 38, 38, 0.3)';
-    });
-    
-    playButton.addEventListener('click', () => {
-      launchGame();
-    });
-    
-    document.body.appendChild(playButton);
-    console.log('✅ Functional play button added');
+    // Make the "Play With Yourself" button from HTML functional
+    const playWithYourselfBtn = document.getElementById('play-with-yourself-btn');
+    if (playWithYourselfBtn) {
+      playWithYourselfBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        console.log('🎮 Play With Yourself button clicked - launching game');
+        launchGame();
+      });
+      console.log('✅ Play With Yourself button made functional');
+    } else {
+      console.warn('⚠️ Play With Yourself button not found in HTML');
+    }
     
     // Create music toggle button
     const musicButton = document.createElement('button');
